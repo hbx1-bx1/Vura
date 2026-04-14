@@ -111,30 +111,43 @@ Beautiful dark-themed desktop application with bilingual support (English/Arabic
 - **macOS** or **Linux**
 - An AI API key (OpenAI, DeepSeek, Groq, etc.)
 
-### Quick Start
+### Quick Start (One Command)
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/layth/vura.git
 cd vura
 
-# 2. Create virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate
+# 2. Run the installer
+bash install.sh
+```
 
-# 3. Install dependencies
+That's it! The installer will:
+- ✅ Install all Python dependencies (including Flet & psutil)
+- ✅ Create `config.json` from the template
+- ✅ Register the global `vura` command in `/usr/local/bin`
+- ✅ Set proper permissions
+
+After installation, just type **`vura`** from anywhere:
+
+```bash
+vura            # Launch the Desktop GUI
+vura -h         # Show CLI help
+vura -Ch        # Configure your AI provider & API key (first time)
+```
+
+### Manual Installation (Alternative)
+
+If you prefer not to use the installer:
+
+```bash
+git clone https://github.com/layth/vura.git
+cd vura
 pip install -r requirements.txt
-
-# 4. Install Flet for the GUI
 pip install flet
-
-# 5. Configure your AI provider
-python3 main.py -Ch
-
-# 6. Launch!
-python3 gui.py          # Desktop GUI
-# or
-python3 main.py -h      # CLI help
+cp config.example.json config.json
+python3 main.py -Ch     # Configure API keys
+python3 gui.py          # Launch GUI
 ```
 
 ### Dependencies
@@ -170,6 +183,18 @@ python3 main.py -h      # CLI help
 
 ## 🚀 Usage
 
+> After running `bash install.sh`, the **`vura`** command is available globally.
+> - **No arguments** → launches the **Desktop GUI**
+> - **With arguments** → runs the **CLI**
+
+### Desktop GUI
+
+```bash
+vura
+```
+
+Navigate using the sidebar: Home → Monitor → Analyze → Recon → Reports → Settings
+
 ### CLI Commands
 
 ```bash
@@ -194,14 +219,6 @@ vura -Hy                             # Browse report archive
 vura -Rc                             # Retry last failed report
 ```
 
-### Desktop GUI
-
-```bash
-python3 gui.py
-```
-
-Navigate using the sidebar: Home → Monitor → Analyze → Recon → Reports → Settings
-
 ---
 
 ## 🗂️ Project Structure
@@ -210,6 +227,7 @@ Navigate using the sidebar: Home → Monitor → Analyze → Recon → Reports �
 Vura/
 ├── main.py                      # CLI entry point
 ├── gui.py                       # Flet desktop GUI
+├── install.sh                   # One-command installer (creates 'vura' command)
 ├── config.example.json          # Configuration template
 ├── requirements.txt             # Python dependencies
 ├── build.sh                     # Nuitka compilation script
