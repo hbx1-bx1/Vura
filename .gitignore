@@ -1,0 +1,49 @@
+# 🛑 Secrets & Keys (never commit)
+*.key
+*.pem
+the_keys/
+vura_keygen.py
+config.json
+config.json.backup
+vura_clients_db*.json
+
+# 📂 Data, Logs & Database
+data/
+*.log
+*.db
+.vura.lock
+.vura_state.json
+
+# 🐍 Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+Venv/
+env/
+.venv/
+
+# 🏗️ Build artifacts
+*.build/
+*.dist/
+*.onefile-build/
+nuitka-crash-report.xml
+
+# 📦 Archives
+*.tar.gz
+*.zip
+
+# 🍎 macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 🐧 Linux
+*~
+.directory
+
+# 📝 IDE
+.idea/
+.vscode/
+*.swp
+*.swo

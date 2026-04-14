@@ -1,0 +1,11 @@
+{
+    "provider": "YOUR_PROVIDER_HERE",
+    "api_key": "YOUR_API_KEY_HERE",
+    "model_name": "YOUR_MODEL_NAME_HERE",
+    "base_url": "",
+    "tg_bot_token": "YOUR_TELEGRAM_BOT_TOKEN_HERE",
+    "tg_chat_id": "YOUR_TELEGRAM_CHAT_ID_HERE",
+    "shodan_api_key": "YOUR_SHODAN_API_KEY_HERE",
+    "gophish_api_key": "",
+    "gophish_url": "https://localhost:3333"
+}
