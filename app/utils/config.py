@@ -11,8 +11,9 @@ import copy
 from typing import Optional
 
 # ✅ FIX #4 — مسار مطلق: يعمل من أي مجلد تشغّل منه الأداة
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CONFIG_FILE   = os.path.join(_PROJECT_ROOT, "config.json")
+from pathlib import Path as _Path
+_PROJECT_ROOT = _Path(__file__).parent.parent.parent.absolute()
+CONFIG_FILE   = str(_PROJECT_ROOT / "config.json")
 
 # ─── Default Config Template ────────────────────────────────────────
 DEFAULT_CONFIG = {

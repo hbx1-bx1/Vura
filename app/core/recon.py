@@ -19,11 +19,15 @@ import json
 import shutil
 import subprocess
 import datetime
+import platform
 import requests
+from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 console = Console()
+
+IS_WIN = os.name == "nt"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
@@ -41,9 +45,9 @@ TOOL_TIMEOUTS = {
 # Shodan API
 SHODAN_API_BASE = "https://api.shodan.io"
 
-# ─── مسار حفظ نتائج الاستطلاع ────────────────────────────────────────────
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_RECON_DIR    = os.path.join(_PROJECT_ROOT, "data", "recon")
+# ─── مسار حفظ نتائج الاستطلاع ───────────────────────────────────────────────────────
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
+_RECON_DIR    = _PROJECT_ROOT / "data" / "recon"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -85,11 +89,26 @@ def show_tool_status():
         if path:
             table.add_row(tool, "[green]Installed ✔[/green]", path)
         else:
-            table.add_row(tool, "[red]Not Found ✘[/red]", "Install with: apt install " + tool)
+            if IS_WIN:
+                hint = _win_install_hint(tool)
+            else:
+                hint = f"Install with: apt install {tool}"
+            table.add_row(tool, "[red]Not Found ✘[/red]", hint)
 
     table.add_row("Shodan API", "[yellow]Requires API Key[/yellow]", "Set shodan_api_key in config.json")
     console.print(table)
     return status
+
+
+def _win_install_hint(tool_name):
+    """Return Windows-specific install instructions for recon tools."""
+    hints = {
+        "amass":          "Download from: https://github.com/owasp-amass/amass/releases",
+        "theHarvester":   "pip install theHarvester",
+        "nmap":           "Download from: https://nmap.org/download.html#windows",
+        "whois":          "Install via: choco install whois  OR  winget install SysInternals.WhoIs",
+    }
+    return hints.get(tool_name, f"Search for '{tool_name}' Windows installer")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -104,6 +123,9 @@ def _run_command(cmd, tool_name, timeout=None):
     timeout = timeout or TOOL_TIMEOUTS.get(tool_name, 120)
 
     if not check_tool(cmd[0]):
+        if IS_WIN:
+            hint = _win_install_hint(cmd[0])
+            return "", f"[NOT INSTALLED] '{cmd[0]}' not found on Windows. {hint}", False
         return "", f"[NOT INSTALLED] '{cmd[0]}' not found. Install it first.", False
 
     try:
@@ -135,13 +157,12 @@ def _run_command(cmd, tool_name, timeout=None):
 def _save_recon_output(domain, tool_name, content):
     """حفظ مخرجات كل أداة في data/recon/ للمراجعة لاحقاً."""
     try:
-        os.makedirs(_RECON_DIR, exist_ok=True)
+        _RECON_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_domain = domain.replace(".", "_").replace("/", "_")
-        filename = os.path.join(_RECON_DIR, f"{safe_domain}_{tool_name}_{timestamp}.txt")
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(content)
-        return filename
+        filename = _RECON_DIR / f"{safe_domain}_{tool_name}_{timestamp}.txt"
+        filename.write_text(content, encoding="utf-8")
+        return str(filename)
     except Exception:
         return None
 

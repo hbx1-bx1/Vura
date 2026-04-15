@@ -2,6 +2,7 @@
   <img src="https://img.shields.io/badge/VURA-v1.0.0-1abc9c?style=for-the-badge&logo=shield&logoColor=white" alt="Version"/>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/Price-Free-2ecc71?style=for-the-badge" alt="Free"/>
+  <img src="https://img.shields.io/badge/Windows-Supported-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"/>
   <img src="https://img.shields.io/badge/macOS-Supported-lightgrey?style=for-the-badge&logo=apple&logoColor=white" alt="macOS"/>
   <img src="https://img.shields.io/badge/Linux-Supported-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux"/>
 </p>
@@ -32,13 +33,13 @@
 
 ## 🖥️ Platform Support
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| 🍎 **macOS** | ✅ Fully Tested | Terminal.app & iTerm2 auto-detected via `osascript` |
-| 🐧 **Linux** | ✅ Fully Tested | gnome-terminal, xterm, konsole, kitty, alacritty & more |
-| 🪟 **Windows** | ❌ Not Supported | Unix terminal recording (`script`) required |
+| Platform | Status | Ghost Monitor Method |
+|----------|--------|---------------------|
+| 🪟 **Windows** | ✅ Fully Supported | PowerShell `Start-Transcript` |
+| 🍎 **macOS** | ✅ Fully Supported | Terminal.app / iTerm2 via `osascript` + `script` |
+| 🐧 **Linux** | ✅ Fully Supported | Native terminal emulators + `script` |
 
-VURA uses `pathlib` throughout the codebase for cross-platform file handling, and `psutil` for intelligent process detection on both macOS and Linux.
+VURA uses `pathlib` throughout the codebase for cross-platform file handling, and `psutil` for intelligent process detection on Windows, macOS, and Linux.
 
 ---
 
@@ -49,10 +50,14 @@ VURA uses `pathlib` throughout the codebase for cross-platform file handling, an
 - **HookAll (`-Ha`)** — Reads ALL open interactive terminal sessions simultaneously
 - **Stop & Report (`-R`)** — Stops recording and generates an AI-powered report instantly
 - **Stop & Collect** — Saves raw data for later analysis on the Analyze page
-- **Cross-platform** — macOS uses `osascript` + Terminal.app/iTerm2, Linux uses native terminal emulators
+- **Cross-platform** — Windows (PowerShell Transcript), macOS (osascript + Terminal.app/iTerm2), Linux (native emulators)
 
 ### 🧠 Smart Terminal Filtering (psutil-powered)
-VURA uses `psutil` to scan running processes and detect only **real interactive terminals** running shells (`zsh`, `bash`, `fish`, etc.). Background processes, IDE terminals, and daemons are automatically filtered out.
+VURA uses `psutil` to scan running processes and detect only **real interactive terminals**:
+- **macOS/Linux:** shells like `zsh`, `bash`, `fish`, `ksh`
+- **Windows:** `cmd.exe`, `powershell.exe`, `pwsh.exe`, `WindowsTerminal.exe`
+
+Background processes, IDE terminals, and daemons are automatically filtered out.
 
 The **Exclude Terminal** dialog shows:
 - Terminal name in monospace (`ttys000`)
@@ -108,27 +113,32 @@ Beautiful dark-themed desktop application with bilingual support (English/Arabic
 
 ### Prerequisites
 - **Python 3.10+**
-- **macOS** or **Linux**
+- **Windows 10/11**, **macOS**, or **Linux**
 - An AI API key (OpenAI, DeepSeek, Groq, etc.)
 
-### Quick Start (One Command)
+### Quick Start — macOS / Linux
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/layth/vura.git
 cd vura
-
-# 2. Run the installer
 bash install.sh
 ```
 
-That's it! The installer will:
-- ✅ Install all Python dependencies (including Flet & psutil)
-- ✅ Create `config.json` from the template
-- ✅ Register the global `vura` command in `/usr/local/bin`
-- ✅ Set proper permissions
+### Quick Start — Windows
 
-After installation, just type **`vura`** from anywhere:
+```powershell
+git clone https://github.com/layth/vura.git
+cd vura
+install.bat
+```
+
+Both installers will:
+- ✅ Install all Python dependencies (including Flet & psutil)
+- ✅ Create a virtual environment (`.venv` on Windows)
+- ✅ Create `config.json` from the template
+- ✅ Register the global **`vura`** command so it works from anywhere
+
+After installation, just type **`vura`** from any terminal:
 
 ```bash
 vura            # Launch the Desktop GUI
@@ -138,8 +148,10 @@ vura -Ch        # Configure your AI provider & API key (first time)
 
 ### Manual Installation (Alternative)
 
-If you prefer not to use the installer:
+<details>
+<summary>Click to expand</summary>
 
+**macOS / Linux:**
 ```bash
 git clone https://github.com/layth/vura.git
 cd vura
@@ -149,6 +161,21 @@ cp config.example.json config.json
 python3 main.py -Ch     # Configure API keys
 python3 gui.py          # Launch GUI
 ```
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/layth/vura.git
+cd vura
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pip install flet
+copy config.example.json config.json
+python main.py -Ch      # Configure API keys
+python gui.py           # Launch GUI
+```
+
+</details>
 
 ### Dependencies
 
@@ -227,7 +254,8 @@ vura -Rc                             # Retry last failed report
 Vura/
 ├── main.py                      # CLI entry point
 ├── gui.py                       # Flet desktop GUI
-├── install.sh                   # One-command installer (creates 'vura' command)
+├── install.sh                   # One-command installer (macOS/Linux)
+├── install.bat                  # One-command installer (Windows)
 ├── config.example.json          # Configuration template
 ├── requirements.txt             # Python dependencies
 ├── build.sh                     # Nuitka compilation script

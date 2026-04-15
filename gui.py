@@ -164,13 +164,23 @@ L = {
 # ═══════════════════════════════════════════════════════════════
 _ghost = {"pid": None, "silent": False}
 
+IS_WIN = os.name == "nt"
+
 def _find_term():
     """Cross-platform terminal detection."""
+    if IS_WIN:
+        # Windows — prefer Windows Terminal, fall back to PowerShell/cmd
+        if shutil.which("wt"):
+            return "wt"                # Windows Terminal
+        if shutil.which("pwsh"):
+            return "pwsh"              # PowerShell 7+
+        if shutil.which("powershell"):
+            return "powershell"        # Windows PowerShell 5.1
+        return "cmd"                   # always available
     if platform.system() == "Darwin":
-        # macOS — prefer iTerm2, fall back to built-in Terminal.app
         if shutil.which("iTerm2") or Path("/Applications/iTerm.app").exists():
             return "iterm2"
-        return "terminal.app"  # always available on macOS
+        return "terminal.app"
     # Linux
     for t in ["qterminal","x-terminal-emulator","xfce4-terminal","gnome-terminal",
               "konsole","mate-terminal","lxterminal","xterm","terminator","alacritty","kitty"]:
@@ -184,13 +194,26 @@ def _clean_ansi(text):
 def _launch_terminal(cmd, term):
     """
     Cross-platform terminal launcher.
-    macOS: uses osascript to open Terminal.app / iTerm2 with the command.
+    Windows: opens PowerShell / Windows Terminal with command.
+    macOS: uses osascript to open Terminal.app / iTerm2.
     Linux: uses detected terminal emulator.
     Returns (subprocess.Popen, terminal_name) or raises.
     """
+    if IS_WIN:
+        # Windows launchers
+        if term == "wt":
+            p = subprocess.Popen(["wt", "powershell", "-NoExit", "-Command", cmd],
+                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        elif term in ("pwsh", "powershell"):
+            p = subprocess.Popen([term, "-NoExit", "-Command", cmd],
+                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            p = subprocess.Popen(["cmd", "/k", cmd],
+                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        return p, term
+
     if platform.system() == "Darwin":
         if term == "iterm2":
-            # AppleScript to open iTerm2 with command
             ascript = (
                 'tell application "iTerm"\n'
                 '  activate\n'
@@ -202,7 +225,6 @@ def _launch_terminal(cmd, term):
             )
             p = subprocess.Popen(["osascript", "-e", ascript])
         else:
-            # Terminal.app via osascript
             ascript = (
                 'tell application "Terminal"\n'
                 '  activate\n'
@@ -225,21 +247,29 @@ def _launch_terminal(cmd, term):
 
 
 def ghost_start():
-    """(-H) Open terminal with script recording."""
-    if platform.system() == "Windows":
-        return False, "Not supported on Windows"
-    if not shutil.which("script"):
-        return False, "'script' not found. Install util-linux."
+    """(-H) Open terminal with script/transcript recording."""
     term = _find_term()
     if not term:
-        return False, "No terminal found! Install: sudo apt install xterm"
+        return False, "No terminal found! Install a terminal emulator."
     _DATA.mkdir(exist_ok=True)
-    sh = os.environ.get("SHELL", "/bin/bash")
-    banner = r"echo -e '\033[1;32m[VURA Ghost Monitor]\033[0m Recording... Type exit when done.'"
-    if platform.system() == "Darwin":
-        cmd = f"{banner}; script -q -a {_LOG} {sh}"
+    if IS_WIN:
+        # Windows: PowerShell Start-Transcript
+        log_str = str(_LOG)
+        cmd = (
+            f"Start-Transcript -Path '{log_str}' -Append; "
+            "Write-Host '[VURA Ghost Monitor] Recording... Type exit when done.' -ForegroundColor Green; "
+            "cmd; "
+            "Stop-Transcript"
+        )
     else:
-        cmd = f"{banner}; script -q -a -c {sh} {_LOG}"
+        if not shutil.which("script"):
+            return False, "'script' not found. Install util-linux."
+        sh = os.environ.get("SHELL", "/bin/bash")
+        banner = r"echo -e '\033[1;32m[VURA Ghost Monitor]\033[0m Recording... Type exit when done.'"
+        if platform.system() == "Darwin":
+            cmd = f"{banner}; script -q -a {_LOG} {sh}"
+        else:
+            cmd = f"{banner}; script -q -a -c {sh} {_LOG}"
     try:
         p, tname = _launch_terminal(cmd, term)
         _ghost["pid"] = p.pid
@@ -249,19 +279,30 @@ def ghost_start():
 
 def ghost_hookall():
     """(-Ha) Read all open terminal sessions."""
-    if platform.system() == "Windows": 
-        return False, "Not supported", 0
     _DATA.mkdir(exist_ok=True)
     terminals = []
-    if platform.system() == "Darwin":
-        # macOS uses /dev/ttys*
+    if IS_WIN:
+        # Windows: find shell processes via psutil
+        try:
+            import psutil
+            WIN_SHELLS = {"cmd.exe", "powershell.exe", "pwsh.exe"}
+            for proc in psutil.process_iter(["pid", "name", "status"]):
+                try:
+                    info = proc.info
+                    pname = (info.get("name") or "").lower()
+                    if pname in WIN_SHELLS and info.get("status") != "zombie":
+                        terminals.append(f"WIN-PID-{info['pid']}")
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        except ImportError:
+            pass
+    elif platform.system() == "Darwin":
         dev = Path("/dev")
         for entry in dev.iterdir():
             if entry.name.startswith("ttys") and entry.name[4:].isdigit():
                 if os.access(entry, os.R_OK):
                     terminals.append(str(entry))
     else:
-        # Linux uses /dev/pts/*
         pts_dir = Path("/dev/pts")
         if pts_dir.is_dir():
             for entry in pts_dir.iterdir():
@@ -270,7 +311,8 @@ def ghost_hookall():
                         terminals.append(str(entry))
     if not terminals: 
         return False, "", 0
-    # Also try `who` command
+    if IS_WIN:
+        return True, f"Found {len(terminals)} shell(s): {', '.join(terminals)}", len(terminals)
     try:
         out = subprocess.check_output(["who"], text=True, stderr=subprocess.DEVNULL)
         return True, out.strip(), len(terminals)
@@ -284,6 +326,7 @@ def ghost_list_terminals():
     Filters out background/daemon terminals — only returns those running an interactive shell.
     """
     INTERACTIVE_SHELLS = {"zsh", "bash", "sh", "fish", "tcsh", "csh", "dash", "ksh"}
+    WIN_SHELLS = {"cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe"}
     results = []
     seen_ttys = set()
     try:
@@ -291,35 +334,52 @@ def ghost_list_terminals():
         for proc in psutil.process_iter(["pid", "name", "terminal", "status"]):
             try:
                 info = proc.info
-                tty = info.get("terminal")
                 pname = (info.get("name") or "").lower()
                 status = info.get("status", "")
-                if not tty:
-                    continue
-                # Normalize: psutil may return "ttys000" or "/dev/ttys000"
-                tty_path = tty if tty.startswith("/dev/") else f"/dev/{tty}"
-                tty_name = Path(tty_path).name
-                # Skip if already seen or not a real tty
-                if tty_path in seen_ttys:
-                    continue
-                # Only include if running an interactive shell
-                if pname not in INTERACTIVE_SHELLS:
-                    continue
-                # Skip zombie/dead processes
+                pid = info.get("pid", 0)
                 if status in ("zombie", "dead"):
                     continue
-                seen_ttys.add(tty_path)
-                results.append({
-                    "path": tty_path,
-                    "name": tty_name,
-                    "shell": pname,
-                    "pid": info.get("pid", 0),
-                })
+
+                if IS_WIN:
+                    # Windows: no tty field — match by process name
+                    if pname not in WIN_SHELLS:
+                        continue
+                    win_id = f"WIN-PID-{pid}"
+                    if win_id in seen_ttys:
+                        continue
+                    seen_ttys.add(win_id)
+                    shell_label = pname.replace(".exe", "")
+                    results.append({
+                        "path": win_id,
+                        "name": f"PID-{pid}",
+                        "shell": shell_label,
+                        "pid": pid,
+                    })
+                else:
+                    # macOS / Linux: filter by tty + interactive shell
+                    tty = info.get("terminal")
+                    if not tty:
+                        continue
+                    tty_path = tty if tty.startswith("/dev/") else f"/dev/{tty}"
+                    tty_name = Path(tty_path).name
+                    if tty_path in seen_ttys:
+                        continue
+                    if pname not in INTERACTIVE_SHELLS:
+                        continue
+                    seen_ttys.add(tty_path)
+                    results.append({
+                        "path": tty_path,
+                        "name": tty_name,
+                        "shell": pname,
+                        "pid": pid,
+                    })
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
     except ImportError:
-        # Fallback if psutil not installed — return raw ttys list
-        if platform.system() == "Darwin":
+        # Fallback if psutil not installed
+        if IS_WIN:
+            pass  # No fallback on Windows without psutil
+        elif platform.system() == "Darwin":
             dev = Path("/dev")
             for entry in sorted(dev.iterdir()):
                 if entry.name.startswith("ttys") and entry.name[4:].isdigit():

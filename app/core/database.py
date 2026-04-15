@@ -26,15 +26,16 @@ import json
 import sqlite3
 import datetime
 import secrets
+from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
 console = Console()
 
 # ─── Database Path ───────────────────────────────────────────────────────────
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_DB_DIR       = os.path.join(_PROJECT_ROOT, "data")
-_DB_PATH      = os.path.join(_DB_DIR, "vura.db")
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
+_DB_DIR       = _PROJECT_ROOT / "data"
+_DB_PATH      = _DB_DIR / "vura.db"
 
 # ─── Client Plans ────────────────────────────────────────────────────────────
 VALID_PLANS = ("free", "pro_individual", "pro_team", "pro_enterprise",
@@ -129,8 +130,8 @@ class VuraDB:
     """
 
     def __init__(self, db_path=None):
-        self.db_path = db_path or _DB_PATH
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self.db_path = Path(db_path) if db_path else _DB_PATH
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row  # النتائج كـ dict-like objects
@@ -508,9 +509,9 @@ class VuraDB:
             int: عدد السجلات المستوردة
         """
         if not json_path:
-            json_path = os.path.join(_PROJECT_ROOT, "vura_clients_db.json")
+            json_path = str(_PROJECT_ROOT / "vura_clients_db.json")
 
-        if not os.path.exists(json_path):
+        if not Path(json_path).exists():
             console.print(f"[dim yellow][~] No JSON database found at {json_path} — skipping migration.[/dim yellow]")
             return 0
 
@@ -685,7 +686,7 @@ class VuraDB:
         """
         if not output_path:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = os.path.join(_DB_DIR, f"vura_backup_{timestamp}.json")
+            output_path = str(_DB_DIR / f"vura_backup_{timestamp}.json")
 
         data = {
             "exported_at": self._now(),

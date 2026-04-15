@@ -23,6 +23,9 @@ Venv/
 env/
 .venv/
 
+# 🔧 Auto-generated launcher (Windows)
+vura.bat
+
 # 🏗️ Build artifacts
 *.build/
 *.dist/

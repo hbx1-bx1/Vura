@@ -1,8 +1,10 @@
 """
 VURA Ghost Monitor — Invisible Terminal Session Recording
 ══════════════════════════════════════════════════════════
-Uses the `script` command to silently record terminal sessions.
-Supports Linux and macOS. Session data is cleaned and passed to AI.
+Cross-platform terminal session recorder.
+- macOS / Linux: uses the `script` command
+- Windows: uses PowerShell `Start-Transcript`
+Session data is cleaned and passed to AI for analysis.
 """
 
 import os
@@ -11,16 +13,18 @@ import re
 import datetime
 import platform
 import shutil
+import signal
+from pathlib import Path
 from rich.console import Console
 from app.utils.logger import log
 
 console = Console()
 
-# ✅ FIX #4 — مسارات مطلقة
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_DATA_DIR     = os.path.join(_PROJECT_ROOT, "data")
-LOG_FILE      = os.path.join(_DATA_DIR, ".vura_session.log")
-META_FILE     = os.path.join(_DATA_DIR, ".vura_session_meta.json")
+IS_WIN = os.name == "nt"
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
+_DATA_DIR     = _PROJECT_ROOT / "data"
+LOG_FILE      = _DATA_DIR / ".vura_session.log"
+META_FILE     = _DATA_DIR / ".vura_session_meta.json"
 
 
 def clean_ansi_escape_sequences(text):
@@ -39,12 +43,12 @@ def _save_session_meta(action):
         "action": action,
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "user": os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
-        "shell": os.environ.get("SHELL", "unknown"),
+        "shell": os.environ.get("SHELL", os.environ.get("COMSPEC", "unknown")),
         "os": platform.system(),
         "cwd": os.getcwd(),
     }
     try:
-        os.makedirs(_DATA_DIR, exist_ok=True)
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
         with open(META_FILE, "w") as f:
             json.dump(meta, f, indent=2)
     except Exception:
@@ -53,8 +57,8 @@ def _save_session_meta(action):
 
 def _get_session_size():
     """حجم ملف الجلسة الحالي."""
-    if os.path.exists(LOG_FILE):
-        size = os.path.getsize(LOG_FILE)
+    if LOG_FILE.exists():
+        size = LOG_FILE.stat().st_size
         if size < 1024:
             return f"{size} bytes"
         elif size < 1024 * 1024:
@@ -64,6 +68,61 @@ def _get_session_size():
     return "0 bytes"
 
 
+def _start_windows_transcript(silent=False):
+    """
+    Windows Ghost Monitor using PowerShell Start-Transcript.
+    Opens a new PowerShell window that records everything to LOG_FILE.
+    """
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+    log_path_str = str(LOG_FILE)
+
+    # PowerShell script: start transcript, inform user, wait for exit
+    ps_commands = (
+        f"Start-Transcript -Path '{log_path_str}' -Append; "
+        "Write-Host '[VURA Ghost Monitor] Recording... Type exit when done.' -ForegroundColor Green; "
+        "& $env:COMSPEC; "
+        "Stop-Transcript"
+    )
+
+    if not silent:
+        if LOG_FILE.exists():
+            size = _get_session_size()
+            console.print(f"\n[bold cyan][+] Resuming previous VURA Ghost Session ({size})...[/bold cyan]")
+        else:
+            console.print(f"\n[bold green][+] Starting new VURA Ghost Monitor (Windows)...[/bold green]")
+        console.print("[bold yellow][!] A PowerShell window will open. Type [bold red]'exit'[/bold red] to stop recording.[/bold yellow]\n")
+
+    _save_session_meta("start")
+    log.info("Ghost Monitor started (Windows PowerShell Transcript)")
+
+    try:
+        subprocess.run(
+            ["powershell", "-NoExit", "-Command", ps_commands],
+            creationflags=subprocess.CREATE_NEW_CONSOLE if IS_WIN else 0,
+        )
+
+        if not silent:
+            size = _get_session_size()
+            console.print(f"\n[bold cyan][~] Session Paused & Saved safely! ({size})[/bold cyan]")
+            console.print("[dim white]Run 'vura -H' to resume, or 'vura -R' to generate report.[/dim white]\n")
+
+        _save_session_meta("pause")
+        log.info("Ghost Monitor paused (Windows)", size=_get_session_size())
+
+    except FileNotFoundError:
+        if not silent:
+            console.print("[bold red][!] PowerShell not found. Please install PowerShell 5.1+.[/bold red]")
+        log.error("PowerShell not found on Windows")
+    except KeyboardInterrupt:
+        if not silent:
+            console.print("\n[bold yellow][~] Session interrupted by user.[/bold yellow]")
+        log.info("Ghost Monitor interrupted by user (Windows)")
+    except Exception as e:
+        if not silent:
+            console.print(f"[bold red][!] Error during monitoring: {e}[/bold red]")
+        log.exception("Ghost Monitor error (Windows)", e)
+
+
 def start_ghost_monitor(silent=False):
     """
     بدء تسجيل Terminal session.
@@ -71,16 +130,15 @@ def start_ghost_monitor(silent=False):
     Parameters:
         silent : True = بدون أي طباعة — للتشغيل التلقائي
     """
-    user_shell = os.environ.get("SHELL", "/bin/bash")
     sys_os = platform.system()
 
-    # ── فحص النظام ──
-    if sys_os == "Windows":
-        if not silent:
-            console.print("[bold red][!] Ghost Monitor is not supported on Windows.[/bold red]")
-            console.print("[dim white]Tip: Use Windows Terminal's built-in logging or WSL.[/dim white]\n")
-        log.warn("Ghost Monitor attempted on Windows")
+    # ── Windows: PowerShell Start-Transcript ──
+    if IS_WIN:
+        _start_windows_transcript(silent)
         return
+
+    # ── macOS / Linux: script command ──
+    user_shell = os.environ.get("SHELL", "/bin/bash")
 
     if not shutil.which("script"):
         if not silent:
@@ -88,11 +146,10 @@ def start_ghost_monitor(silent=False):
         log.error("script command not found")
         return
 
-    # ── إعداد المجلد ──
-    os.makedirs(_DATA_DIR, exist_ok=True)
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if not silent:
-        if os.path.exists(LOG_FILE):
+        if LOG_FILE.exists():
             size = _get_session_size()
             console.print(f"\n[bold cyan][+] Resuming previous VURA Ghost Session ({size})...[/bold cyan]")
         else:
@@ -102,11 +159,10 @@ def start_ghost_monitor(silent=False):
     _save_session_meta("start")
     log.info("Ghost Monitor started", shell=user_shell, os=sys_os)
 
-    # ── تحديد الأمر حسب النظام ──
     if sys_os == "Darwin":
-        command = ["script", "-q", "-a", LOG_FILE, user_shell]
+        command = ["script", "-q", "-a", str(LOG_FILE), user_shell]
     else:
-        command = ["script", "-q", "-a", "-c", user_shell, LOG_FILE]
+        command = ["script", "-q", "-a", "-c", user_shell, str(LOG_FILE)]
 
     try:
         subprocess.run(command)
@@ -141,14 +197,13 @@ def end_ghost_monitor():
         str : البيانات المُنظّفة من ANSI codes — جاهزة للـ AI
         None : إذا لم تكن هناك جلسة نشطة
     """
-    if not os.path.exists(LOG_FILE):
+    if not LOG_FILE.exists():
         console.print("[bold red][!] No active session found. Run 'vura -H' first.[/bold red]")
         log.warn("end_ghost_monitor called but no session file found")
         return None
 
     try:
-        with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
-            raw_data = f.read()
+        raw_data = LOG_FILE.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
         console.print(f"[bold red][!] Cannot read session file: {e}[/bold red]")
         log.error("Cannot read session file", error=str(e))
@@ -158,14 +213,14 @@ def end_ghost_monitor():
 
     # ── حذف الملف ──
     try:
-        os.remove(LOG_FILE)
+        LOG_FILE.unlink()
     except Exception:
         pass
 
     # ── حذف الـ meta ──
     try:
-        if os.path.exists(META_FILE):
-            os.remove(META_FILE)
+        if META_FILE.exists():
+            META_FILE.unlink()
     except Exception:
         pass
 
@@ -184,17 +239,17 @@ def end_ghost_monitor():
 
 def is_session_active():
     """هل يوجد session نشطة حالياً."""
-    return os.path.exists(LOG_FILE)
+    return LOG_FILE.exists()
 
 
 def get_session_info():
     """معلومات عن الجلسة الحالية."""
-    if not os.path.exists(LOG_FILE):
+    if not LOG_FILE.exists():
         return None
 
-    info = {"size": _get_session_size(), "path": LOG_FILE}
+    info = {"size": _get_session_size(), "path": str(LOG_FILE)}
 
-    if os.path.exists(META_FILE):
+    if META_FILE.exists():
         import json
         try:
             with open(META_FILE, "r") as f:
@@ -209,12 +264,12 @@ def discard_session():
     """حذف الجلسة بدون توليد تقرير."""
     deleted = False
     for f in [LOG_FILE, META_FILE]:
-        if os.path.exists(f):
-            try:
-                os.remove(f)
+        try:
+            if f.exists():
+                f.unlink()
                 deleted = True
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     if deleted:
         console.print("[yellow][-] Session discarded.[/yellow]")
@@ -227,13 +282,20 @@ def discard_session():
 # HOOKALL — Record ALL Open Terminals Simultaneously
 # ═══════════════════════════════════════════════════════════════════════════════
 
-HOOKALL_LOG    = os.path.join(_DATA_DIR, ".vura_hookall.log")
-HOOKALL_PIDS   = os.path.join(_DATA_DIR, ".vura_hookall_pids")
-EXCLUDE_FILE   = os.path.join(_DATA_DIR, ".vura_exclude_pts")
+HOOKALL_LOG    = _DATA_DIR / ".vura_hookall.log"
+HOOKALL_PIDS   = _DATA_DIR / ".vura_hookall_pids"
+EXCLUDE_FILE   = _DATA_DIR / ".vura_exclude_pts"
 
 
 def _get_current_pts():
     """الحصول على مسار الـ pts للطرفية الحالية."""
+    if IS_WIN:
+        # Windows: no tty concept; return a pseudo-identifier
+        try:
+            pid = os.getpid()
+            return f"WIN-PID-{pid}"
+        except Exception:
+            return None
     try:
         return subprocess.check_output(["tty"], text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
@@ -243,37 +305,53 @@ def _get_current_pts():
 def _get_active_terminals():
     """
     اكتشاف كل الطرفيات النشطة للمستخدم الحالي.
-    يستخدم أمر `who` لمعرفة كل الجلسات.
+    - Windows: uses psutil to find cmd.exe / powershell.exe / pwsh.exe
+    - macOS/Linux: uses `who` command + /dev/pts fallback
     """
-    user = os.environ.get("USER", os.environ.get("LOGNAME", ""))
     terminals = []
+
+    if IS_WIN:
+        # Windows: find interactive console host processes
+        try:
+            import psutil
+            WIN_SHELLS = {"cmd.exe", "powershell.exe", "pwsh.exe"}
+            for proc in psutil.process_iter(["pid", "name", "status"]):
+                try:
+                    info = proc.info
+                    pname = (info.get("name") or "").lower()
+                    if pname in WIN_SHELLS and info.get("status") != "zombie":
+                        terminals.append(f"WIN-PID-{info['pid']}")
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        except ImportError:
+            pass
+        return sorted(set(terminals))
+
+    # macOS / Linux
+    user = os.environ.get("USER", os.environ.get("LOGNAME", ""))
 
     try:
         output = subprocess.check_output(["who"], text=True, stderr=subprocess.DEVNULL)
         for line in output.splitlines():
             parts = line.split()
             if len(parts) >= 2:
-                # فحص إذا هذا المستخدم الحالي
                 if user and parts[0] != user:
                     continue
                 pts_name = parts[1]
                 pts_path = f"/dev/{pts_name}"
-                if os.path.exists(pts_path):
+                if Path(pts_path).exists():
                     terminals.append(pts_path)
     except Exception:
         pass
 
     # fallback: البحث في /dev/pts/ مباشرة
     if not terminals:
+        pts_dir = Path("/dev/pts")
         try:
-            pts_dir = "/dev/pts"
-            if os.path.isdir(pts_dir):
-                for entry in os.listdir(pts_dir):
-                    if entry.isdigit():
-                        pts_path = os.path.join(pts_dir, entry)
-                        # فحص الصلاحية — هل نقدر نقرأ منه
-                        if os.access(pts_path, os.R_OK):
-                            terminals.append(pts_path)
+            if pts_dir.is_dir():
+                for entry in pts_dir.iterdir():
+                    if entry.name.isdigit() and os.access(entry, os.R_OK):
+                        terminals.append(str(entry))
         except Exception:
             pass
 
@@ -282,10 +360,9 @@ def _get_active_terminals():
 
 def _load_excluded():
     """تحميل قائمة الطرفيات المستبعدة."""
-    if os.path.exists(EXCLUDE_FILE):
+    if EXCLUDE_FILE.exists():
         try:
-            with open(EXCLUDE_FILE, "r") as f:
-                return {line.strip() for line in f if line.strip()}
+            return {line.strip() for line in EXCLUDE_FILE.read_text().splitlines() if line.strip()}
         except Exception:
             pass
     return set()
@@ -296,23 +373,16 @@ def exclude_terminal():
     استبعاد الطرفية الحالية من hookall.
     الأمر: vura -e
     """
-    sys_os = platform.system()
-    if sys_os == "Windows":
-        console.print("[bold red][!] Not supported on Windows.[/bold red]")
-        return
-
     pts = _get_current_pts()
     if not pts or "not a tty" in pts:
         console.print("[bold red][!] Cannot detect current terminal. Are you in a TTY?[/bold red]")
         return
 
-    os.makedirs(_DATA_DIR, exist_ok=True)
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
     excluded = _load_excluded()
     excluded.add(pts)
 
-    with open(EXCLUDE_FILE, "w") as f:
-        for p in sorted(excluded):
-            f.write(p + "\n")
+    EXCLUDE_FILE.write_text("\n".join(sorted(excluded)) + "\n")
 
     console.print(f"[bold yellow][-] Terminal excluded: {pts}[/bold yellow]")
     console.print("[dim]This terminal will NOT be recorded by hookall.[/dim]")
@@ -330,13 +400,7 @@ def start_hookall(silent=False):
     3. تشغيل عملية قراءة خلفية لكل طرفية
     4. تجميع كل المخرجات في ملف واحد
     """
-    sys_os = platform.system()
-    if sys_os == "Windows":
-        if not silent:
-            console.print("[bold red][!] Hookall is not supported on Windows.[/bold red]")
-        return
-
-    os.makedirs(_DATA_DIR, exist_ok=True)
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # ── اكتشاف الطرفيات ──
     all_terminals = _get_active_terminals()
@@ -348,7 +412,6 @@ def start_hookall(silent=False):
     # ── استبعاد المُعلَّمة ──
     excluded = _load_excluded()
     current_pts = _get_current_pts()
-    # استبعاد الطرفية الحالية تلقائياً (لا نقرأ من نفسنا)
     if current_pts:
         excluded.add(current_pts)
 
@@ -371,29 +434,28 @@ def start_hookall(silent=False):
     # ── تشغيل القراءة الخلفية ──
     pids = []
     try:
-        # فتح ملف اللوج للكتابة
         log_handle = open(HOOKALL_LOG, "a", encoding="utf-8", errors="ignore")
 
-        for pts_path in targets:
+        for pts_id in targets:
             try:
-                # كل طرفية: نقرأ مخرجاتها في الخلفية
+                if IS_WIN:
+                    # Windows: cannot `cat` a PID — skip background attach
+                    # (Windows hookall is handled in the GUI via psutil snapshot)
+                    continue
                 proc = subprocess.Popen(
-                    ["cat", pts_path],
+                    ["cat", pts_id],
                     stdout=log_handle,
                     stderr=subprocess.DEVNULL,
-                    preexec_fn=os.setpgrp,  # منع إنهاء العملية عند إغلاق الطرفية الحالية
+                    preexec_fn=os.setpgrp,
                 )
                 pids.append(str(proc.pid))
                 if not silent:
-                    console.print(f"    [dim]PID {proc.pid} → {pts_path}[/dim]")
+                    console.print(f"    [dim]PID {proc.pid} → {pts_id}[/dim]")
             except Exception as e:
                 if not silent:
-                    console.print(f"    [dim red]Cannot attach to {pts_path}: {e}[/dim red]")
+                    console.print(f"    [dim red]Cannot attach to {pts_id}: {e}[/dim red]")
 
-        # حفظ الـ PIDs لإيقافها لاحقاً
-        with open(HOOKALL_PIDS, "w") as f:
-            f.write("\n".join(pids))
-
+        HOOKALL_PIDS.write_text("\n".join(pids))
         log.info("Hookall started", terminals=len(targets), pids=len(pids))
 
     except Exception as e:
@@ -408,29 +470,31 @@ def stop_hookall():
     يُستدعى من end_ghost_monitor إذا كان hookall نشطاً.
     """
     # ── إيقاف العمليات الخلفية ──
-    if os.path.exists(HOOKALL_PIDS):
+    if HOOKALL_PIDS.exists():
         try:
-            with open(HOOKALL_PIDS, "r") as f:
-                pids = [p.strip() for p in f.readlines() if p.strip()]
+            pids = [p.strip() for p in HOOKALL_PIDS.read_text().splitlines() if p.strip()]
 
             for pid in pids:
                 try:
-                    os.kill(int(pid), 9)  # SIGKILL
+                    pid_int = int(pid)
+                    if IS_WIN:
+                        os.kill(pid_int, signal.SIGTERM)
+                    else:
+                        os.kill(pid_int, 9)  # SIGKILL
                 except (ProcessLookupError, ValueError, PermissionError):
                     pass
 
-            os.remove(HOOKALL_PIDS)
+            HOOKALL_PIDS.unlink()
             console.print(f"[bold cyan][~] Hookall stopped ({len(pids)} recorder(s) terminated).[/bold cyan]")
         except Exception:
             pass
 
     # ── قراءة البيانات المجمّعة ──
-    if os.path.exists(HOOKALL_LOG):
+    if HOOKALL_LOG.exists():
         try:
-            with open(HOOKALL_LOG, "r", encoding="utf-8", errors="ignore") as f:
-                raw_data = f.read()
+            raw_data = HOOKALL_LOG.read_text(encoding="utf-8", errors="ignore")
             clean_data = clean_ansi_escape_sequences(raw_data)
-            os.remove(HOOKALL_LOG)
+            HOOKALL_LOG.unlink()
 
             console.print(f"[bold green][+] Hookall captured {len(clean_data):,} characters from all terminals![/bold green]")
             log.info("Hookall ended", chars=len(clean_data))
@@ -443,11 +507,11 @@ def stop_hookall():
 
 def is_hookall_active():
     """هل hookall يعمل حالياً."""
-    return os.path.exists(HOOKALL_PIDS)
+    return HOOKALL_PIDS.exists()
 
 
 def clear_excluded():
     """مسح قائمة الطرفيات المستبعدة."""
-    if os.path.exists(EXCLUDE_FILE):
-        os.remove(EXCLUDE_FILE)
+    if EXCLUDE_FILE.exists():
+        EXCLUDE_FILE.unlink()
         console.print("[green][+] Exclude list cleared.[/green]")

@@ -15,8 +15,9 @@ from rich.console import Console
 console = Console()
 
 # ✅ FIX #4 — مسار مطلق لمجلد التقارير
-_PROJECT_ROOT   = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_REPORTS_ROOT   = os.path.join(_PROJECT_ROOT, "reports")
+from pathlib import Path as _Path
+_PROJECT_ROOT   = _Path(__file__).parent.parent.parent.absolute()
+_REPORTS_ROOT   = str(_PROJECT_ROOT / "reports")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
