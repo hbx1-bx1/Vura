@@ -8,6 +8,13 @@ Entry point: python main.py [commands]
 
 import sys
 import os
+
+# ── Force UTF-8 on Windows (fixes emoji crash in legacy terminals) ──
+if sys.stdout and sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr and sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
+
 import argparse
 from rich.console import Console
 from rich.panel import Panel

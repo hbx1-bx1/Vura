@@ -6,8 +6,16 @@ Ghost Monitor opens a real terminal.
 HookAll reads all open sessions.
 Bilingual EN/AR. Flet 0.82 compatible.
 """
+import sys, os
+
+# ── Force UTF-8 on Windows (fixes emoji crash in legacy terminals) ──
+if sys.stdout and sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr and sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
+
 import flet as ft
-import os, sys, glob, json, datetime, threading, traceback
+import glob, json, datetime, threading, traceback
 import subprocess, shutil, platform, re, signal
 from pathlib import Path
 
