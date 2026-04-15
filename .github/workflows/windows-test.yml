@@ -25,4 +25,4 @@ jobs:
     - name: Test CLI Execution on Windows
       run: |
         python main.py -h
-        python main.py -H
+        python main.py -R
