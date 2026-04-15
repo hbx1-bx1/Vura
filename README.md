@@ -119,7 +119,7 @@ Beautiful dark-themed desktop application with bilingual support (English/Arabic
 ### Quick Start — macOS / Linux
 
 ```bash
-git clone https://github.com/layth/vura.git
+git clone https://github.com/hbx1_bx1/vura.git
 cd vura
 bash install.sh
 ```
@@ -127,7 +127,7 @@ bash install.sh
 ### Quick Start — Windows
 
 ```powershell
-git clone https://github.com/layth/vura.git
+git clone https://github.com/hbx1_bx1/vura.git
 cd vura
 install.bat
 ```
@@ -356,6 +356,6 @@ SOFTWARE.
 ---
 
 <p align="center">
-  <b>Made with ❤️ by Layth</b><br/>
+  <b>Made by Layth</b><br/>
   <i>VURA — Because security reports shouldn't take hours.</i>
 </p>
