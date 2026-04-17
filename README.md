@@ -111,26 +111,55 @@ Beautiful dark-themed desktop application with bilingual support (English/Arabic
 
 ## 📦 Installation
 
-### Prerequisites
-- **Python 3.10+**
-- **Windows 10/11**, **macOS**, or **Linux**
-- An AI API key (OpenAI, DeepSeek, Groq, etc.)
+### 📋 Prerequisites
+- **🐍 Python 3.10+** — [Download Python](https://www.python.org/downloads/)
+- **🖥️ Windows 10/11**, **macOS**, or **Linux**
+- **🔑 An AI API key** (OpenAI, DeepSeek, Groq, etc.)
 
-### Quick Start — macOS / Linux
+> [!IMPORTANT]
+> **🪟 Windows Users:** If you want to use `git clone` from the terminal, you must install [**Git for Windows**](https://gitforwindows.org/) first. If you don't have Git, see the [📥 No-Git alternative](#-alternative-download-zip-no-git-required) below.
+
+---
+
+### 🍎 Quick Start — macOS / Linux
 
 ```bash
-git clone https://github.com/hbx1_bx1/vura.git
+git clone https://github.com/layth/vura.git
 cd vura
 bash install.sh
 ```
 
-### Quick Start — Windows
+### 🪟 Quick Start — Windows
 
 ```powershell
-git clone https://github.com/hbx1_bx1/vura.git
-cd vura
-install.bat
+git clone https://github.com/hbx1-bx1/Vura.git
+cd Vura
+.\install.bat
 ```
+
+### 📥 Alternative: Download ZIP (No Git Required)
+
+If you don't have Git installed, you can download the project directly:
+
+1. 🌐 Go to [**github.com/hbx1-bx1/Vura**](https://github.com/hbx1-bx1/Vura)
+2. 📦 Click the green **`<> Code`** button → **`Download ZIP`**
+3. 📂 Extract the downloaded `Vura-main.zip` folder
+4. 💻 Open **Terminal** (macOS/Linux) or **PowerShell** (Windows) inside the extracted folder
+5. ▶️ Run the installer:
+
+**Windows:**
+```powershell
+.\install.bat
+```
+
+**macOS / Linux:**
+```bash
+bash install.sh
+```
+
+---
+
+### ✅ What the installer does
 
 Both installers will:
 - ✅ Install all Python dependencies (including Flet & psutil)
@@ -141,20 +170,20 @@ Both installers will:
 After installation, just type **`vura`** from any terminal:
 
 ```bash
-vura            # Launch the Desktop GUI
-vura -h         # Show CLI help
-vura -Ch        # Configure your AI provider & API key (first time)
+vura            # 🎨 Launch the Desktop GUI
+vura -h         # 📖 Show CLI help
+vura -Ch        # 🔧 Configure your AI provider & API key (first time)
 ```
 
-### Manual Installation (Alternative)
+### 🔧 Manual Installation (Alternative)
 
 <details>
 <summary>Click to expand</summary>
 
-**macOS / Linux:**
+**🍎 macOS / Linux:**
 ```bash
-git clone https://github.com/layth/vura.git
-cd vura
+git clone https://github.com/hbx1-bx1/Vura.git
+cd Vura
 pip install -r requirements.txt
 pip install flet
 cp config.example.json config.json
@@ -162,10 +191,10 @@ python3 main.py -Ch     # Configure API keys
 python3 gui.py          # Launch GUI
 ```
 
-**Windows (PowerShell):**
+**🪟 Windows (PowerShell):**
 ```powershell
-git clone https://github.com/layth/vura.git
-cd vura
+git clone https://github.com/hbx1-bx1/Vura.git
+cd Vura
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
