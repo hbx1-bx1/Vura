@@ -124,8 +124,8 @@ Beautiful dark-themed desktop application with bilingual support (English/Arabic
 ### 🍎 Quick Start — macOS / Linux
 
 ```bash
-git clone https://github.com/layth/vura.git
-cd vura
+git clone https://github.com/hbx1-bx1/Vura.git
+cd Vura
 bash install.sh
 ```
 
