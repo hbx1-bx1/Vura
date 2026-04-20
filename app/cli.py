@@ -7,6 +7,7 @@ scan tracking, and integration with all VURA modules.
 
 import sys
 import argparse
+import datetime
 from pathlib import Path
 import json
 from rich.prompt import Confirm, Prompt
