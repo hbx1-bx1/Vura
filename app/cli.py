@@ -6,6 +6,7 @@ scan tracking, and integration with all VURA modules.
 """
 
 import sys
+import os
 import argparse
 import datetime
 from pathlib import Path
