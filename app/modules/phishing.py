@@ -30,24 +30,22 @@ Usage:
 import os
 import json
 import datetime
+from pathlib import Path
 import requests
 import urllib3
 from rich.console import Console
 from rich.table import Table
 
-# GoPhish يستخدم self-signed SSL — نوقف التحذيرات
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 console = Console()
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_gophish_config():
     """تحميل إعدادات GoPhish من config.json."""
-    config_path = os.path.join(_PROJECT_ROOT, "config.json")
+    config_path = _PROJECT_ROOT / "config.json"
     try:
-        with open(config_path, "r") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
         return {
             "api_key": config.get("gophish_api_key", "").strip(),
@@ -62,12 +60,25 @@ class VuraPhishing:
     إدارة حملات التصيّد عبر GoPhish API.
     """
 
-    def __init__(self, api_key=None, gophish_url=None):
+    def __init__(self, api_key=None, gophish_url=None, verify_ssl=None):
         config = _load_gophish_config()
         self.api_key = api_key or config["api_key"]
         self.base_url = gophish_url or config["url"]
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
-        self.verify_ssl = False  # GoPhish عادةً self-signed
+
+        # Default: verify TLS for remote hosts, allow self-signed ONLY for local
+        # GoPhish (which ships with a self-signed cert by default). Callers can
+        # still opt in/out explicitly via the constructor arg.
+        if verify_ssl is None:
+            parsed = urllib3.util.parse_url(self.base_url)
+            host = (parsed.host or "").lower()
+            verify_ssl = host not in ("localhost", "127.0.0.1", "::1")
+        self.verify_ssl = verify_ssl
+
+        # Only silence InsecureRequestWarning when we are explicitly skipping
+        # verification — keep it loud for every other requests.* consumer.
+        if not self.verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         if not self.api_key:
             console.print(

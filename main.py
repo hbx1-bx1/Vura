@@ -10,12 +10,16 @@ import sys
 import os
 
 # ── Force UTF-8 on Windows (fixes emoji crash in legacy terminals) ──
-if sys.stdout and sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
-if sys.stderr and sys.stderr.encoding != 'utf-8':
-    sys.stderr.reconfigure(encoding='utf-8')
+try:
+    if sys.stdout and getattr(sys.stdout, 'encoding', '').lower() != 'utf-8':
+        sys.stdout.reconfigure(encoding='utf-8')
+    if sys.stderr and getattr(sys.stderr, 'encoding', '').lower() != 'utf-8':
+        sys.stderr.reconfigure(encoding='utf-8')
+except (AttributeError, ValueError):
+    pass
 
 import argparse
+from getpass import getpass
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -166,44 +170,58 @@ def main():
     # إعداد المفاتيح — -Ch
     # ═══════════════════════════════════════════════════════════════════════
     if args.change_key:
-        console.print("\n[bold cyan][~] VURA Global Configuration[/bold cyan]")
-        config_data = load_api_config() or {}
+        try:
+            console.print("\n[bold cyan][~] VURA Global Configuration[/bold cyan]")
+            config_data = load_api_config() or {}
 
-        providers_str = ", ".join(SUPPORTED_PROVIDERS)
-        console.print(f"[dim]Supported providers: {providers_str}[/dim]\n")
+            providers_str = ", ".join(SUPPORTED_PROVIDERS)
+            console.print(f"[dim]Supported providers: {providers_str}[/dim]\n")
 
-        provider = input(f"Provider [{config_data.get('provider', '')}]: ").strip()
-        if provider:
-            config_data["provider"] = provider
+            provider = input(f"Provider [{config_data.get('provider', '')}]: ").strip()
+            if provider:
+                config_data["provider"] = provider
 
-        api_key = input("API Key: ").strip()
-        if api_key:
-            config_data["api_key"] = api_key
+            api_key = getpass("API Key (hidden): ").strip()
+            if api_key:
+                config_data["api_key"] = api_key
 
-        model = input(f"Model Name [{config_data.get('model_name', '')}]: ").strip()
-        if model:
-            config_data["model_name"] = model
+            model = input(f"Model Name [{config_data.get('model_name', '')}]: ").strip()
+            if model:
+                config_data["model_name"] = model
 
-        if provider == "custom":
-            base_url = input("Custom Base URL: ").strip()
-            if base_url:
-                config_data["base_url"] = base_url
+            # Use the EFFECTIVE provider (new input OR previously-stored value),
+            # normalized, so "Custom", " custom ", or keeping the existing
+            # "custom" via Enter all correctly trigger the base_url prompt.
+            effective = (provider or config_data.get("provider", "")).strip().lower()
+            if effective == "custom":
+                current_base = config_data.get("base_url", "").strip()
+                prompt = f"Custom Base URL [{current_base}]: " if current_base else "Custom Base URL: "
+                base_url = input(prompt).strip()
+                if base_url:
+                    config_data["base_url"] = base_url
+                elif not current_base:
+                    console.print(
+                        "[yellow][!] provider='custom' requires a base_url — "
+                        "run 'vura -Ch' again to set it.[/yellow]"
+                    )
 
-        console.print("\n[dim]── Telegram (optional) ──[/dim]")
-        tg_token = input("Telegram Bot Token: ").strip()
-        if tg_token:
-            config_data["tg_bot_token"] = tg_token
-        tg_chat = input("Your Chat ID: ").strip()
-        if tg_chat:
-            config_data["tg_chat_id"] = tg_chat
+            console.print("\n[dim]── Telegram (optional) ──[/dim]")
+            tg_token = getpass("Telegram Bot Token (hidden): ").strip()
+            if tg_token:
+                config_data["tg_bot_token"] = tg_token
+            tg_chat = input("Your Chat ID: ").strip()
+            if tg_chat:
+                config_data["tg_chat_id"] = tg_chat
 
-        console.print("\n[dim]── Integrations (optional) ──[/dim]")
-        shodan = input("Shodan API Key: ").strip()
-        if shodan:
-            config_data["shodan_api_key"] = shodan
+            console.print("\n[dim]── Integrations (optional) ──[/dim]")
+            shodan = getpass("Shodan API Key (hidden): ").strip()
+            if shodan:
+                config_data["shodan_api_key"] = shodan
 
-        save_api_config(config_data)
-        console.print("\n[bold green][+] Configuration saved successfully![/bold green]\n")
+            save_api_config(config_data)
+            console.print("\n[bold green][+] Configuration saved successfully![/bold green]\n")
+        except KeyboardInterrupt:
+            console.print("\n[yellow][!] Configuration cancelled.[/yellow]")
         sys.exit(0)
 
     # ═══════════════════════════════════════════════════════════════════════

@@ -8,6 +8,7 @@ Session data is cleaned and passed to AI for analysis.
 """
 
 import os
+import json
 import subprocess
 import re
 import datetime
@@ -38,7 +39,6 @@ def clean_ansi_escape_sequences(text):
 
 def _save_session_meta(action):
     """حفظ بيانات الجلسة الوصفية."""
-    import json
     meta = {
         "action": action,
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -49,7 +49,7 @@ def _save_session_meta(action):
     }
     try:
         _DATA_DIR.mkdir(parents=True, exist_ok=True)
-        with open(META_FILE, "w") as f:
+        with open(META_FILE, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
     except Exception:
         pass
@@ -98,7 +98,7 @@ def _start_windows_transcript(silent=False):
     try:
         subprocess.run(
             ["powershell", "-NoExit", "-Command", ps_commands],
-            creationflags=subprocess.CREATE_NEW_CONSOLE if IS_WIN else 0,
+            creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0) if IS_WIN else 0,
         )
 
         if not silent:
@@ -130,8 +130,6 @@ def start_ghost_monitor(silent=False):
     Parameters:
         silent : True = بدون أي طباعة — للتشغيل التلقائي
     """
-    sys_os = platform.system()
-
     # ── Windows: PowerShell Start-Transcript ──
     if IS_WIN:
         _start_windows_transcript(silent)
@@ -157,15 +155,18 @@ def start_ghost_monitor(silent=False):
         console.print("[bold yellow][!] Session is recording. Type [bold red]'exit'[/bold red] to pause/save.[/bold yellow]\n")
 
     _save_session_meta("start")
-    log.info("Ghost Monitor started", shell=user_shell, os=sys_os)
+    log.info("Ghost Monitor started", shell=user_shell, os=platform.system())
 
-    if sys_os == "Darwin":
+    if platform.system() == "Darwin":
         command = ["script", "-q", "-a", str(LOG_FILE), user_shell]
     else:
         command = ["script", "-q", "-a", "-c", user_shell, str(LOG_FILE)]
 
     try:
-        subprocess.run(command)
+        result = subprocess.run(command)
+
+        if result.returncode != 0 and not silent:
+            console.print(f"[bold yellow][!] script exited with code {result.returncode}[/bold yellow]")
 
         if not silent:
             size = _get_session_size()
@@ -250,9 +251,8 @@ def get_session_info():
     info = {"size": _get_session_size(), "path": str(LOG_FILE)}
 
     if META_FILE.exists():
-        import json
         try:
-            with open(META_FILE, "r") as f:
+            with open(META_FILE, "r", encoding="utf-8") as f:
                 info.update(json.load(f))
         except Exception:
             pass
@@ -434,26 +434,25 @@ def start_hookall(silent=False):
     # ── تشغيل القراءة الخلفية ──
     pids = []
     try:
-        log_handle = open(HOOKALL_LOG, "a", encoding="utf-8", errors="ignore")
-
-        for pts_id in targets:
-            try:
-                if IS_WIN:
-                    # Windows: cannot `cat` a PID — skip background attach
-                    # (Windows hookall is handled in the GUI via psutil snapshot)
-                    continue
-                proc = subprocess.Popen(
-                    ["cat", pts_id],
-                    stdout=log_handle,
-                    stderr=subprocess.DEVNULL,
-                    preexec_fn=os.setpgrp,
-                )
-                pids.append(str(proc.pid))
-                if not silent:
-                    console.print(f"    [dim]PID {proc.pid} → {pts_id}[/dim]")
-            except Exception as e:
-                if not silent:
-                    console.print(f"    [dim red]Cannot attach to {pts_id}: {e}[/dim red]")
+        with open(HOOKALL_LOG, "a", encoding="utf-8", errors="ignore") as log_handle:
+            for pts_id in targets:
+                try:
+                    if IS_WIN:
+                        # Windows: cannot `cat` a PID — skip background attach
+                        # (Windows hookall is handled in the GUI via psutil snapshot)
+                        continue
+                    proc = subprocess.Popen(
+                        ["cat", pts_id],
+                        stdout=log_handle,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                    pids.append(str(proc.pid))
+                    if not silent:
+                        console.print(f"    [dim]PID {proc.pid} → {pts_id}[/dim]")
+                except Exception as e:
+                    if not silent:
+                        console.print(f"    [dim red]Cannot attach to {pts_id}: {e}[/dim red]")
 
         HOOKALL_PIDS.write_text("\n".join(pids))
         log.info("Hookall started", terminals=len(targets), pids=len(pids))
@@ -480,7 +479,7 @@ def stop_hookall():
                     if IS_WIN:
                         os.kill(pid_int, signal.SIGTERM)
                     else:
-                        os.kill(pid_int, 9)  # SIGKILL
+                        os.kill(pid_int, signal.SIGKILL)
                 except (ProcessLookupError, ValueError, PermissionError):
                     pass
 

@@ -26,6 +26,7 @@ import json
 import sqlite3
 import datetime
 import secrets
+import threading
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -133,10 +134,14 @@ class VuraDB:
         self.db_path = Path(db_path) if db_path else _DB_PATH
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.conn = sqlite3.connect(self.db_path)
+        # check_same_thread=False so the GUI (which runs SQL on worker threads)
+        # can share the connection with the main thread. Access is serialized
+        # by self._lock below.
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row  # النتائج كـ dict-like objects
         self.conn.execute("PRAGMA journal_mode=WAL")  # أداء أفضل للكتابة المتزامنة
         self.conn.execute("PRAGMA foreign_keys=ON")    # تفعيل العلاقات
+        self._lock = threading.Lock()
 
         self._init_schema()
 

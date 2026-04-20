@@ -6,6 +6,8 @@ response validation, and specialized security prompts.
 """
 
 import time
+import re
+import json
 from openai import OpenAI, APIConnectionError, RateLimitError, APIStatusError, APITimeoutError
 from rich.console import Console
 from app.utils.config import load_api_config
@@ -421,7 +423,6 @@ def _validate_response(content, output_format):
 
     # ── بعض النماذج تُضيف <think>...</think> — نحذفها ──
     if "<think>" in content:
-        import re
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
 
     # ── فحص إذا كان الرد قصير جداً (أقل من 50 حرف = غير مفيد) ──
@@ -430,7 +431,6 @@ def _validate_response(content, output_format):
 
     # ── فحص JSON ──
     if output_format == "json":
-        import json
         clean = content.replace("```json", "").replace("```", "").strip()
         try:
             json.loads(clean)
@@ -507,7 +507,6 @@ def _format_error(error, provider, model_name, output_format):
         msg = f"{provider.upper()} error: {error}"
 
     if output_format == "json":
-        import json
         return json.dumps({"error": msg}, ensure_ascii=False)
     else:
         return f"# Connection Error\n{msg}"
@@ -549,7 +548,7 @@ def generate_report(raw_data, language="English", output_format="md",
     is_valid, config_error = _validate_config(config)
     if not is_valid:
         if output_format == "json":
-            return f'{{"error": "{config_error}"}}'
+            return json.dumps({"error": config_error}, ensure_ascii=False)
         return f"# Error\n{config_error}"
 
     provider   = config["provider"].strip().lower()
@@ -558,23 +557,32 @@ def generate_report(raw_data, language="English", output_format="md",
 
     if not model_name:
         recommendations = RECOMMENDED_MODELS.get(provider, "Check your provider's docs")
+        err = f"No model_name in config.json. Recommended for {provider}: {recommendations}"
         if output_format == "json":
-            return f'{{"error": "No model_name in config.json. Recommended for {provider}: {recommendations}"}}'
-        return f"# Error\nNo model_name in config.json.\nRecommended for {provider}: {recommendations}"
+            return json.dumps({"error": err}, ensure_ascii=False)
+        return f"# Error\n{err}"
 
     # ── فحص حجم المدخلات ──
     can_proceed, size_error = _check_input_size(raw_data, provider)
     if not can_proceed:
         if output_format == "json":
-            return f'{{"error": "{size_error}"}}'
+            return json.dumps({"error": size_error}, ensure_ascii=False)
         return f"# VURA Error\n{size_error}"
 
     # ── تنبيه Anthropic ──
+    # VURA uses the OpenAI-compatible client for every provider. Anthropic's own
+    # /v1/messages endpoint is NOT OpenAI-compatible, so requests are routed
+    # through OpenRouter (which speaks OpenAI). Warn loudly every call so the
+    # user does not silently send traffic to a proxy they didn't expect — and
+    # so they know a plain Anthropic API key will NOT work here.
     if provider == "anthropic":
         console.print(
-            "[dim yellow][!] VURA: Anthropic direct API is not OpenAI-compatible — "
-            "routing through OpenRouter. Ensure your key works with OpenRouter, "
-            "or set provider='openrouter' in config.json.[/dim yellow]"
+            "[bold yellow][!] VURA: provider='anthropic' is routed through "
+            "OpenRouter (https://openrouter.ai/api/v1) because Anthropic's "
+            "native API is not OpenAI-compatible.\n"
+            "    → Your api_key must be an OpenRouter key, NOT a raw Anthropic key.\n"
+            "    → To use Anthropic directly, set provider='openrouter' and "
+            "pick an anthropic/* model (e.g. anthropic/claude-sonnet-4-6).[/bold yellow]"
         )
 
     # ── تجهيز الاتصال ──

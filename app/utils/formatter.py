@@ -7,9 +7,11 @@ executive reports, dual-report generation, and compliance mapping.
 
 import os
 import re
+import sys
 import json
 import datetime
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from rich.console import Console
 
 console = Console()
@@ -181,31 +183,37 @@ def setup_directories():
         os.makedirs(os.path.join(_REPORTS_ROOT, sub), exist_ok=True)
 
 
+def _fetch_cve(cve: str) -> str:
+    """Fetch a single CVE from circl.lu and format it as a markdown list item."""
+    try:
+        resp = requests.get(f"https://cve.circl.lu/api/cve/{cve}", timeout=5)
+        if resp.status_code == 200 and resp.json():
+            data    = resp.json()
+            cvss    = data.get("cvss", "N/A")
+            summary = str(data.get("summary", "No description available."))[:250] + "..."
+            return (
+                f"- 🔴 **{cve}** | **CVSS Score:** `{cvss}` | "
+                f"[View Official NVD Report](https://nvd.nist.gov/vuln/detail/{cve})\n"
+                f"  - *{summary}*\n"
+            )
+    except Exception:
+        pass
+    return f"- 🔴 **{cve}** | [View Official NVD Report](https://nvd.nist.gov/vuln/detail/{cve})\n"
+
+
 def enrich_with_cve_data(report_content):
-    cves = list(set(re.findall(r"CVE-\d{4}-\d{4,7}", report_content.upper())))
+    cves = sorted(set(re.findall(r"CVE-\d{4}-\d{4,7}", report_content.upper())))
     if not cves:
         return report_content
 
     console.print(f"\n[bold yellow][⚡] Radar Alert: Found {len(cves)} CVE(s). Fetching live threat intel...[/bold yellow]")
-    intel_section = "\n\n---\n\n## 🌍 VURA Live Threat Intelligence (NVD)\n"
 
-    for cve in cves:
-        try:
-            resp = requests.get(f"https://cve.circl.lu/api/cve/{cve}", timeout=5)
-            if resp.status_code == 200 and resp.json():
-                data    = resp.json()
-                cvss    = data.get("cvss", "N/A")
-                summary = str(data.get("summary", "No description available."))[:250] + "..."
-                intel_section += (
-                    f"- 🔴 **{cve}** | **CVSS Score:** `{cvss}` | "
-                    f"[View Official NVD Report](https://nvd.nist.gov/vuln/detail/{cve})\n"
-                    f"  - *{summary}*\n"
-                )
-            else:
-                intel_section += f"- 🔴 **{cve}** | [View Official NVD Report](https://nvd.nist.gov/vuln/detail/{cve})\n"
-        except Exception:
-            intel_section += f"- 🔴 **{cve}** | [View Official NVD Report](https://nvd.nist.gov/vuln/detail/{cve})\n"
+    # Fetch CVEs in parallel: 30 CVEs serial @ 5s timeout = 150s worst case;
+    # parallel with 8 workers caps us at ~5s total even with every one timing out.
+    with ThreadPoolExecutor(max_workers=min(8, len(cves))) as pool:
+        lines = list(pool.map(_fetch_cve, cves))
 
+    intel_section = "\n\n---\n\n## 🌍 VURA Live Threat Intelligence (NVD)\n" + "".join(lines)
     return report_content + intel_section
 
 
@@ -218,7 +226,11 @@ def generate_patch_script(report_content, session_id, approach="defense"):
     - لا يمكن تشغيله إلا بعد أن يراجعه المستخدم يدوياً ويكتب: chmod +x <script>
     - هذا يُلغي الحاجة لـ Blacklist لأن المستخدم نفسه هو خط الدفاع الأخير.
     """
-    bash_blocks = re.findall(r"```bash(.*?)```", report_content, re.DOTALL | re.IGNORECASE)
+    # Accept ```bash / ```sh / ```shell fences — AI often picks any of these.
+    bash_blocks = re.findall(
+        r"```(?:bash|sh|shell)\s*\n?(.*?)```",
+        report_content, re.DOTALL | re.IGNORECASE,
+    )
     if not bash_blocks:
         return None
 
@@ -249,8 +261,16 @@ def generate_patch_script(report_content, session_id, approach="defense"):
                 all_scripts = all_scripts.replace("#!/bin/bash", safety_header.rstrip(), 1)
             f.write(all_scripts)
 
-        # ✅ FIX #3 — القفل الحقيقي: 444 = للقراءة فقط، لا أحد يستطيع تنفيذه
-        os.chmod(script_path, 0o444)
+        # ✅ FIX #3 — 0o444 read-only on POSIX. Windows ignores POSIX bits;
+        # use the read-only attribute there instead so the safety gate still applies.
+        if sys.platform.startswith("win"):
+            try:
+                import stat
+                os.chmod(script_path, stat.S_IREAD)
+            except OSError:
+                pass
+        else:
+            os.chmod(script_path, 0o444)
         return script_path
     except Exception as e:
         console.print(f"[dim red][!] Script generation failed: {e}[/dim red]")
@@ -330,10 +350,13 @@ def export_to_pdf(markdown_content, session_id, analyst_name="", company_name=""
             f'</div>'
         )
 
+    # NOTE: do NOT @import Google Fonts here — weasyprint would fetch over the
+    # network during PDF generation and hang offline / on slow DNS. Use only
+    # locally available system fonts; if Tajawal is installed it will still
+    # resolve, otherwise the fallback chain kicks in.
     css_style = """
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
     @page { size: A4; margin: 2cm; }
-    body { font-family: 'Tajawal', Arial, sans-serif; line-height: 1.6; color: #2c3e50; }
+    body { font-family: 'Tajawal', 'Noto Sans Arabic', 'DejaVu Sans', Arial, sans-serif; line-height: 1.6; color: #2c3e50; }
     h1 { color: #1abc9c; border-bottom: 2px solid #34495e; padding-bottom: 10px; text-align: center; }
     h2 { color: #2980b9; margin-top: 30px; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
     pre { background-color: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 8px; direction: ltr; text-align: left; overflow-x: auto; }
@@ -358,7 +381,21 @@ def export_to_pdf(markdown_content, session_id, analyst_name="", company_name=""
     try:
         HTML(string=full_html).write_pdf(pdf_filename)
         return pdf_filename
-    except Exception:
+    except (OSError, IOError) as e:
+        # Disk full / permission issues — the user needs to see these.
+        console.print(f"[bold red][!] PDF write failed (filesystem): {e}[/bold red]")
+        return None
+    except Exception as e:
+        # weasyprint raises subclasses of Exception for network-font timeouts,
+        # malformed HTML, missing Pango libs, etc. Don't swallow silently —
+        # surface the error class + message so the user can act on it.
+        console.print(
+            f"[bold red][!] PDF generation failed: {type(e).__name__}: {e}[/bold red]"
+        )
+        console.print(
+            "[dim]    If this mentions fonts or network, the report has been saved "
+            "as Markdown — re-export PDF when the issue is resolved.[/dim]"
+        )
         return None
 
 
@@ -381,7 +418,6 @@ def export_to_docx(markdown_content, session_id, analyst_name="", company_name="
         from docx import Document as DocxDocument
         from docx.shared import Inches, Pt, Cm, RGBColor
         from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.enum.style import WD_STYLE_TYPE
     except ImportError:
         console.print("[dim red][!] python-docx not installed. Run: pip install python-docx[/dim red]")
         return None

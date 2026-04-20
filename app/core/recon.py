@@ -344,12 +344,15 @@ def run_shodan(target, api_key=None, timeout=None):
         import re
         is_ip = bool(re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', target))
 
+        # Shodan REST auth is query-string only — pass via `params` instead of
+        # interpolating so the key never lands in logs / tracebacks / error text.
         if is_ip:
-            url = f"{SHODAN_API_BASE}/shodan/host/{target}?key={api_key}"
+            url = f"{SHODAN_API_BASE}/shodan/host/{target}"
         else:
-            # DNS resolve أولاً ثم host lookup
-            dns_url = f"{SHODAN_API_BASE}/dns/resolve?hostnames={target}&key={api_key}"
-            dns_resp = requests.get(dns_url, timeout=timeout)
+            dns_url = f"{SHODAN_API_BASE}/dns/resolve"
+            dns_resp = requests.get(
+                dns_url, params={"hostnames": target, "key": api_key}, timeout=timeout,
+            )
             dns_resp.raise_for_status()
             dns_data = dns_resp.json()
 
@@ -359,11 +362,11 @@ def run_shodan(target, api_key=None, timeout=None):
                 console.print(f"[dim red]  ✘ {result['error']}[/dim red]")
                 return result
 
-            url = f"{SHODAN_API_BASE}/shodan/host/{resolved_ip}?key={api_key}"
+            url = f"{SHODAN_API_BASE}/shodan/host/{resolved_ip}"
             result["resolved_ip"] = resolved_ip
 
         # ── استعلام Host ──
-        resp = requests.get(url, timeout=timeout)
+        resp = requests.get(url, params={"key": api_key}, timeout=timeout)
 
         if resp.status_code == 401:
             result["error"] = "Shodan API key is invalid (401). Check your key."

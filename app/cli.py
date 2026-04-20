@@ -7,10 +7,12 @@ scan tracking, and integration with all VURA modules.
 
 import sys
 import os
-import argparse
+import re
+import glob
 import datetime
 from pathlib import Path
 import json
+from collections import deque
 from rich.prompt import Confirm, Prompt
 from rich.console import Console
 from rich.progress import Progress
@@ -50,18 +52,18 @@ def save_state(raw_data, tool_name, context, output_format, language, notify, ap
         "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        STATE_FILE.parent.mkdir(exist_ok=True)
-        with open(STATE_FILE, "w") as f:
-            json.dump(state, f)
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
     except (IOError, OSError, TypeError) as e:
         console.print(f"[dim red][!] Failed to save state: {e}[/dim red]")
 
 
 def get_last_status():
     try:
-        with open(STATE_FILE, "r") as f:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f).get("status", "Unknown")
-    except (json.JSONDecodeError, IOError, KeyError, FileNotFoundError):
+    except (json.JSONDecodeError, OSError, KeyError):
         return "Corrupted or Missing"
 
 
@@ -147,9 +149,9 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
                "Generating... (API Processing)")
 
     timestamp  = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_tool  = tool_name.replace(" ", "") if tool_name else "Scan"
+    safe_tool  = re.sub(r'[^A-Za-z0-9_-]', '', tool_name) if tool_name else "Scan"
     session_id = f"VURA_{safe_tool}_{timestamp}"
-    prep_data  = f"Tool Used: {tool_name}\nContext: {context}\n\nTerminal Output:\n{raw_data}"
+    prep_data  = f"Tool Used: {tool_name or 'Unknown'}\nContext: {context or 'General terminal session'}\n\nTerminal Output:\n{raw_data}"
 
     console.print(f"\n[bold magenta][~] VURA AI Engine ({language} | {report_label})...[/bold magenta]")
 
@@ -159,7 +161,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
         )
         final_report_content = generate_report(
             prep_data, language=language, output_format=output_format,
-            approach="defense", include_script=False, scan_type=scan_type,
+            approach=cli_approach or approach, include_script=False, scan_type=scan_type,
             report_context=report_context
         )
         progress.update(task, advance=100)
@@ -172,8 +174,8 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
         return
 
     # ── كشف أخطاء AI ──
-    error_markers = ["# Connection Error", "# VURA Error", "# Error\n"]
-    is_error = any(final_report_content.startswith(m) for m in error_markers)
+    error_markers = ("# Connection Error", "# VURA Error", "# Error")
+    is_error = final_report_content.lstrip().startswith(error_markers)
 
     if output_format == "json":
         try:
@@ -212,7 +214,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
     elif output_format == "pdf":
         _md_path, _, final_enriched_content = save_markdown_report(
-            final_report_content, session_id, "defense"
+            final_report_content, session_id, cli_approach or approach
         )
         saved_file_path = export_to_pdf(final_enriched_content, session_id)
         if saved_file_path:
@@ -220,7 +222,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
     elif output_format == "docx":
         _md_path, _, final_enriched_content = save_markdown_report(
-            final_report_content, session_id, "defense"
+            final_report_content, session_id, cli_approach or approach
         )
         saved_file_path = export_to_docx(final_enriched_content, session_id)
         if saved_file_path:
@@ -228,7 +230,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
     else:
         saved_file_path, _, final_enriched_content = save_markdown_report(
-            final_report_content, session_id, "defense"
+            final_report_content, session_id, cli_approach or approach
         )
         if saved_file_path:
             console.print(f"[bold green][✔] Markdown Report saved: ./{saved_file_path}[/bold green]")
@@ -243,7 +245,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
     # المرحلة 4: سكربت .sh — فقط للتقارير التقنية
     # ══════════════════════════════════════════════════════════════════════
     if chosen_type["has_script"]:
-        want_script = Confirm.ask("\n[?] Generate an Action Bash Script (.sh)?")
+        want_script = Confirm.ask("\n[?] Generate an Action Bash Script (.sh)?", default=False)
 
         if want_script:
             if cli_approach:
@@ -446,12 +448,17 @@ def run_system_check():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def read_terminal_history(lines=50):
-    history_file = os.path.expanduser("~/.bash_history")
-    if "zsh" in os.environ.get("SHELL", ""):
+    if os.name == "nt":
+        history_file = os.path.expandvars(
+            r"%APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+        )
+    elif "zsh" in os.environ.get("SHELL", ""):
         history_file = os.path.expanduser("~/.zsh_history")
+    else:
+        history_file = os.path.expanduser("~/.bash_history")
     try:
         with open(history_file, "r", encoding="utf-8", errors="ignore") as f:
-            return "".join(f.readlines()[-lines:])
+            return "".join(deque(f, maxlen=lines))
     except (IOError, OSError):
         return None
 
@@ -461,7 +468,7 @@ def show_report_history():
     reports_root = os.path.join(_PROJECT_ROOT, "reports")
     files = []
     for ext in ["md", "json", "pdf", "sh"]:
-        files.extend(glob.glob(os.path.join(reports_root, ext, "*.*")))
+        files.extend(glob.glob(os.path.join(reports_root, ext, f"*.{ext}")))
 
     if not files:
         return console.print("[yellow][!] No reports found.[/yellow]")
@@ -522,8 +529,12 @@ def handle_cli_commands(args):
 
     if args.recreate:
         if os.path.exists(STATE_FILE):
-            with open(STATE_FILE, "r") as f:
-                state = json.load(f)
+            try:
+                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                    state = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                console.print("[bold red][!] State file is corrupted. Cannot recreate.[/bold red]")
+                return
             console.print("[bold cyan][~] Re-creating previous failed report from cache...[/bold cyan]")
             process_and_report(
                 state["raw_data"], state.get("tool"), state.get("context"),

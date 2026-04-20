@@ -16,7 +16,7 @@ if sys.stderr and sys.stderr.encoding != 'utf-8':
 
 import flet as ft
 import glob, json, datetime, threading, traceback
-import subprocess, shutil, platform, re, signal
+import subprocess, shutil, platform, re, signal, shlex
 from pathlib import Path
 
 _ROOT = Path(__file__).parent.absolute()
@@ -221,13 +221,15 @@ def _launch_terminal(cmd, term):
         return p, term
 
     if platform.system() == "Darwin":
+        # Escape for embedding inside AppleScript double-quoted strings.
+        osa_cmd = cmd.replace('\\', '\\\\').replace('"', '\\"')
         if term == "iterm2":
             ascript = (
                 'tell application "iTerm"\n'
                 '  activate\n'
                 '  set newWindow to (create window with default profile)\n'
-                f'  tell current session of newWindow\n'
-                f'    write text "{cmd}"\n'
+                '  tell current session of newWindow\n'
+                f'    write text "{osa_cmd}"\n'
                 '  end tell\n'
                 'end tell'
             )
@@ -236,21 +238,23 @@ def _launch_terminal(cmd, term):
             ascript = (
                 'tell application "Terminal"\n'
                 '  activate\n'
-                f'  do script "{cmd}"\n'
+                f'  do script "{osa_cmd}"\n'
                 'end tell'
             )
             p = subprocess.Popen(["osascript", "-e", ascript])
         return p, term
 
-    # Linux terminal emulators
+    # Linux terminal emulators — pass cmd as a separate argv element whenever possible
+    # so a single-quote in cmd cannot break out of the wrapper.
     if "gnome-terminal" in term:
         p = subprocess.Popen([term, "--title=VURA Ghost", "--", "bash", "-c", cmd])
     elif "konsole" in term:
         p = subprocess.Popen([term, "-e", "bash", "-c", cmd])
     elif "xterm" in term:
-        p = subprocess.Popen([term, "-T", "VURA Ghost", "-e", f"bash -c '{cmd}'"])
+        # xterm -e accepts separate argv elements, avoiding the shell-quote trap.
+        p = subprocess.Popen([term, "-T", "VURA Ghost", "-e", "bash", "-c", cmd])
     else:
-        p = subprocess.Popen([term, "-e", f"bash -c '{cmd}'"])
+        p = subprocess.Popen([term, "-e", "bash", "-c", cmd])
     return p, term
 
 
@@ -812,7 +816,11 @@ def main(page: ft.Page):
                     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     sid = f"VURA_Ghost_{ts}"
                     prep = f"Tool: Ghost Monitor\nContext: Live terminal\n\nOutput:\n{raw}"
-                    ct = generate_report(prep, language="English", output_format="md",
+                    # Pick report language from the UI toggle (e/a). Monitor tab
+                    # has no dedicated language dropdown, so we honor the app
+                    # language the user already selected.
+                    rep_lang = "Arabic" if lang["v"] == "a" else "English"
+                    ct = generate_report(prep, language=rep_lang, output_format="md",
                         approach="defense", include_script=False, scan_type="terminal", report_context="")
                     if not ct: return "ERROR: AI returned empty response"
                     ct = add_compliance_section(ct)
@@ -933,7 +941,8 @@ def main(page: ft.Page):
                         res = generate_dual_reports(raw_data=prep, session_id=sid, approach=ap,
                             language=la, output_format=of, include_script=False, notify=nt)
                         if res and res.get("technical", {}).get("content"):
-                            return f"✔ Dual!\nTech: {res['technical'].get('file','')}\nExec: {res['executive'].get('file','')}"
+                            return (f"✔ Dual!\nTech: {res['technical'].get('md','')}\n"
+                                    f"Exec: {res['executive'].get('md','')}")
                         return "ERROR: Dual failed"
 
                     ct = generate_report(prep, language=la, output_format=of, approach=ap,
@@ -1133,14 +1142,46 @@ def main(page: ft.Page):
             snack(t("recreating"), C.Y)
             def do():
                 try:
-                    with open(state_file, "r") as f: state = json.load(f)
-                    from app.cli import process_and_report
-                    process_and_report(
-                        state["raw_data"], state.get("tool"), state.get("context"),
-                        state.get("format","md"), state.get("language","English"),
-                        state.get("notify"), state.get("approach","defense"))
+                    with open(state_file, "r", encoding="utf-8") as f:
+                        state = json.load(f)
+                    raw = state.get("raw_data") or ""
+                    if not raw.strip():
+                        return "ERROR: No raw_data in state file"
+                    from app.core.ai_engine import generate_report
+                    from app.utils.formatter import (
+                        save_markdown_report, export_to_pdf, export_to_docx,
+                        save_json_report, add_compliance_section,
+                    )
+                    tool = state.get("tool") or "Unknown"
+                    ctx  = state.get("context") or "Recreated report"
+                    of   = state.get("format", "md")
+                    la   = state.get("language", "English")
+                    ap   = state.get("approach", "defense")
+                    ts   = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    safe_tool = re.sub(r'[^A-Za-z0-9_-]', '', tool) or "Scan"
+                    sid  = f"VURA_{safe_tool}_{ts}"
+                    prep = f"Tool Used: {tool}\nContext: {ctx}\n\nTerminal Output:\n{raw}"
+                    ct = generate_report(
+                        prep, language=la, output_format=of, approach=ap,
+                        include_script=False, scan_type="terminal", report_context=ctx,
+                    )
+                    if not ct:
+                        return "ERROR: AI returned empty"
+                    if of != "json":
+                        ct = add_compliance_section(ct)
+                    if of == "json":
+                        save_json_report(ct, sid)
+                    elif of == "pdf":
+                        _, _, en = save_markdown_report(ct, sid, ap)
+                        export_to_pdf(en, sid)
+                    elif of == "docx":
+                        _, _, en = save_markdown_report(ct, sid, ap)
+                        export_to_docx(en, sid)
+                    else:
+                        save_markdown_report(ct, sid, ap)
                     return "OK"
-                except Exception as ex: return f"ERROR: {ex}"
+                except Exception as ex:
+                    return f"ERROR: {ex}"
             def done(r):
                 if r == "OK": snack(t("recreate_ok"), C.G); load(); page.update()
                 else: snack(str(r), C.R)
@@ -1253,4 +1294,4 @@ def main(page: ft.Page):
     ], expand=True, spacing=0))
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.app(main)

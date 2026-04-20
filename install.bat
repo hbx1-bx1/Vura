@@ -103,12 +103,26 @@ REM Create the wrapper batch file
     echo ^)
 ) > "%WRAPPER%"
 
-REM Add project directory to user PATH if not already there
+REM Add project directory to user PATH if not already there.
+REM IMPORTANT: never use `setx PATH "%PATH%;..."` — that combines System + User PATH,
+REM writes it to the User scope, and truncates at 1024 chars (can destroy PATH).
+REM We update ONLY the User scope via PowerShell, which has no length limit.
 echo %PATH% | find /i "%VURA_HOME%" >nul
 if errorlevel 1 (
-    setx PATH "%PATH%;%VURA_HOME%" >nul 2>&1
-    echo   [OK] Added %VURA_HOME% to your PATH
-    echo        Please restart your terminal for PATH changes to take effect.
+    powershell -NoProfile -Command ^
+      "$p = [Environment]::GetEnvironmentVariable('Path','User');" ^
+      "if (-not $p) { $p = '' };" ^
+      "if ($p -notlike '*%VURA_HOME%*') {" ^
+      "  if ($p -and -not $p.EndsWith(';')) { $p += ';' };" ^
+      "  $p += '%VURA_HOME%';" ^
+      "  [Environment]::SetEnvironmentVariable('Path',$p,'User')" ^
+      "}" >nul 2>&1
+    if errorlevel 1 (
+        echo   [!] Could not update User PATH automatically. Add %VURA_HOME% manually.
+    ) else (
+        echo   [OK] Added %VURA_HOME% to your User PATH
+        echo        Please restart your terminal for PATH changes to take effect.
+    )
 ) else (
     echo   [OK] Project directory already in PATH
 )

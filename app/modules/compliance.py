@@ -15,12 +15,13 @@ Usage:
 import os
 import json
 import datetime
+from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
 console = Console()
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETE FRAMEWORK DATABASE

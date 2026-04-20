@@ -13,6 +13,7 @@ Usage:
 
 import os
 import datetime
+import threading
 import traceback
 from pathlib import Path
 from typing import Optional
@@ -30,6 +31,7 @@ class VuraLogger:
     def __init__(self, log_file=None):
         self.log_file = Path(log_file) if log_file else _LOG_FILE
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
 
     def _rotate_if_needed(self):
         """تدوير الملف إذا تجاوز الحجم الأقصى."""
@@ -45,24 +47,32 @@ class VuraLogger:
                     if i + 1 >= MAX_LOG_FILES:
                         old.unlink()
                     else:
+                        if new_path.exists():
+                            new_path.unlink()
                         old.rename(new_path)
-            self.log_file.rename(Path(f"{self.log_file}.1"))
+            target = Path(f"{self.log_file}.1")
+            if target.exists():
+                target.unlink()
+            self.log_file.rename(target)
         except Exception:
             pass
 
     def _write(self, level, message, **kwargs):
-        self._rotate_if_needed()
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         entry = f"[{timestamp}] [{level}] {message}"
         if kwargs:
             details = " | ".join(f"{k}={v}" for k, v in kwargs.items() if v is not None)
             if details:
                 entry += f" | {details}"
-        try:
-            with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(entry + "\n")
-        except Exception:
-            pass
+        # Serialize rotation + write so concurrent threads can't interleave
+        # partial lines or race on rename.
+        with self._lock:
+            try:
+                self._rotate_if_needed()
+                with open(self.log_file, "a", encoding="utf-8") as f:
+                    f.write(entry + "\n")
+            except Exception:
+                pass
 
     def info(self, message, **kwargs):
         self._write("INFO", message, **kwargs)
@@ -106,7 +116,7 @@ class VuraLogger:
 
     def clear(self):
         try:
-            with open(self.log_file, "w") as f:
+            with open(self.log_file, "w", encoding="utf-8") as f:
                 f.write("")
         except Exception:
             pass

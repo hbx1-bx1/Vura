@@ -6,12 +6,7 @@ Supports text messages, PDF file uploads, and severity-based alerts.
 """
 
 import os
-import sys
 from pathlib import Path
-
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
 
 import requests
 from app.utils.config import load_api_config
@@ -70,7 +65,7 @@ def send_telegram_alert(report_path: str, summary_data: str = None, mode: str = 
     if mode == "short":
         text = f"*VURA Engine:* Scan Completed\\!\n*Report:* `{safe_path}`"
     else:
-        safe_summary = (
+        safe_summary = escape_telegram_markdown(
             summary_data[:1500] + "..." if summary_data and len(summary_data) > 1500
             else summary_data or "N/A"
         )
@@ -178,7 +173,7 @@ def _send_message(bot_token: str, chat_id: str, text: str):
     try:
         response = requests.post(
             url,
-            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            json={"chat_id": chat_id, "text": text, "parse_mode": "MarkdownV2"},
             timeout=10,
         )
         if response.status_code != 200:
