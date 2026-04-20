@@ -76,3 +76,4 @@ env/
 .vscode/
 *.swp
 *.swo
+.claude/
