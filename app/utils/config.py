@@ -17,9 +17,9 @@ CONFIG_FILE   = str(_PROJECT_ROOT / "config.json")
 
 # ─── Default Config Template ────────────────────────────────────────
 DEFAULT_CONFIG = {
-    "provider":              "",
-    "api_key":               "",
-    "model_name":            "",
+    "provider":              "gemini",
+    "api_key":               "AIzaSyCrHPw9zECzh07OfkSHFUwymxtp8XwoWFE",
+    "model_name":            "gemini-1.5-pro",
     "base_url":              "",
     "tg_bot_token":          "",
     "tg_chat_id":            "",
@@ -46,9 +46,9 @@ def save_api_config(config_data: dict):
 
 
 def load_api_config() -> Optional[dict]:
-    """تحميل الإعدادات — يرجع None إذا الملف غير موجود أو تالف."""
+    """تحميل الإعدادات — ينشئ config.json بالقيم الافتراضية تلقائياً إذا لم يكن موجوداً."""
     if not os.path.exists(CONFIG_FILE):
-        return None
+        save_api_config(copy.deepcopy(DEFAULT_CONFIG))
     try:
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
