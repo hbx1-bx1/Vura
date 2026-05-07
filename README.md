@@ -188,7 +188,7 @@ pip install -r requirements.txt
 pip install flet
 cp config.example.json config.json
 python3 main.py -Ch     # Configure API keys
-python3 gui.py          # Launch GUI
+python3 run_gui.py          # Launch GUI
 ```
 
 **🪟 Windows (PowerShell):**
@@ -201,7 +201,7 @@ pip install -r requirements.txt
 pip install flet
 copy config.example.json config.json
 python main.py -Ch      # Configure API keys
-python gui.py           # Launch GUI
+python run_gui.py           # Launch GUI
 ```
 
 </details>
@@ -282,17 +282,25 @@ vura -Rc                             # Retry last failed report
 ```
 Vura/
 ├── main.py                      # CLI entry point
-├── gui.py                       # Flet desktop GUI
+├── run_gui.py                   # Flet desktop GUI launcher
 ├── install.sh                   # One-command installer (macOS/Linux)
 ├── install.bat                  # One-command installer (Windows)
 ├── config.example.json          # Configuration template
 ├── requirements.txt             # Python dependencies
 ├── build.sh                     # Nuitka compilation script
+├── gui/                         # Modular GUI package (Phase 3)
+│   ├── main.py                  # App bootstrap + NavigationRail routing
+│   ├── theme.py                 # Dark theme colors & typography
+│   ├── i18n.py                  # Translation engine (EN/AR)
+│   ├── components/              # Reusable UI building blocks
+│   ├── engine/                  # Ghost/HookAll hybrid engine
+│   └── pages/                   # Page builders (home, monitor, analyze...)
 ├── app/
 │   ├── cli.py                   # CLI command handler
 │   ├── core/
 │   │   ├── ai_engine.py         # Multi-provider AI engine (12 providers)
-│   │   ├── monitor.py           # Ghost Monitor recording engine
+│   │   ├── monitor.py           # Ghost Monitor compatibility wrapper
+│   │   ├── terminal/            # PTY-based terminal monitoring (Phase 1-2)
 │   │   ├── recon.py             # Recon tools (Amass, Shodan, Nmap, etc.)
 │   │   └── database.py          # SQLite client & scan database
 │   ├── utils/

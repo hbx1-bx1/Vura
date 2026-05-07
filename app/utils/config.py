@@ -1,8 +1,15 @@
 """
-VURA Configuration Manager
-═══════════════════════════
-Reads, writes, and validates config.json.
-Single source of truth for all configuration access.
+VURA Configuration Manager — Phase 4 (Encrypted)
+══════════════════════════════════════════════════
+Reads, writes, and validates config.json with transparent
+Fernet encryption for sensitive API keys.
+
+Encryption architecture:
+  - Sensitive keys (api_key, tg_bot_token, shodan_api_key, etc.)
+    are encrypted before saving to config.json
+  - Decrypted automatically on load for internal use
+  - Master key stored separately in data/.vura_master.key
+  - File permissions: chmod 0o600 (owner-only)
 """
 
 import json
@@ -12,24 +19,29 @@ import copy
 import subprocess
 from typing import Optional
 
-# ✅ FIX #4 — مسار مطلق: يعمل من أي مجلد تشغّل منه الأداة
+# ── Paths ────────────────────────────────────────────────────────────
 from pathlib import Path as _Path
 _PROJECT_ROOT = _Path(__file__).parent.parent.parent.absolute()
 CONFIG_FILE   = _PROJECT_ROOT / "config.json"
 
 _IS_WINDOWS = sys.platform.startswith("win")
 
+# ── Lazy import crypto (graceful fallback if cryptography not installed) ─
+_crypto_available = False
+try:
+    from app.utils.crypto import (
+        encrypt_config, decrypt_config,
+        is_encrypted, get_vault, KeyVault,
+    )
+    _crypto_available = True
+except Exception:
+    _crypto_available = False
+
 
 def _restrict_permissions(path: _Path) -> None:
     """
     Restrict a file so only the current user can read it.
-
-    POSIX: chmod 0o600 (owner rw, no group/other access).
-    Windows: chmod's POSIX bits are effectively a no-op. We try icacls to
-    grant FullControl to the current user and strip Users/Authenticated Users.
-    If icacls is unavailable (stripped Windows image, permission denied) we
-    fall back to a one-time console warning so the user knows the file is
-    world-readable by default.
+    POSIX: chmod 0o600. Windows: icacls ACL.
     """
     if not _IS_WINDOWS:
         try:
@@ -38,16 +50,12 @@ def _restrict_permissions(path: _Path) -> None:
             pass
         return
 
-    # Windows: POSIX bits don't apply. Use icacls for real ACL-level protection.
     user = os.environ.get("USERNAME") or ""
     if not user:
         _warn_once_windows_perms(path)
         return
 
     try:
-        # /inheritance:r  — remove inherited ACEs
-        # /grant:r        — replace existing grants for the named principal
-        # /remove         — strip the specified group entirely
         subprocess.run(
             ["icacls", str(path), "/inheritance:r",
              "/grant:r", f"{user}:F",
@@ -69,7 +77,7 @@ def _warn_once_windows_perms(path: _Path) -> None:
         "The file may be readable by other local users. "
         "Consider moving the repo to a user-only directory or setting "
         "permissions manually with:\n"
-        f"    icacls \"{path}\" /inheritance:r /grant:r \"%USERNAME%:F\"",
+        f'    icacls "{path}" /inheritance:r /grant:r "%USERNAME%:F"',
         file=sys.stderr,
     )
 
@@ -89,21 +97,57 @@ DEFAULT_CONFIG = {
 # ─── Supported Providers ─────────────────────────────────────────────
 SUPPORTED_PROVIDERS = [
     "openai", "openrouter", "anthropic", "deepseek", "qwen",
-    "gemini", "groq", "mistral", "together", "venice", "github", "custom",
+    "gemini", "groq", "mistral", "together", "venice", "github",
+    "huggingface", "custom",
 ]
 
 
 def save_api_config(config_data: dict):
-    """حفظ الإعدادات مع حماية ACL على كلا النظامين (POSIX chmod + Windows icacls)."""
+    """
+    حفظ الإعدادات مع تشفير تلقائي للمفاتيح الحساسة.
+
+    Sensitive keys are encrypted before writing to disk.
+    File permissions restricted to owner-only (0o600).
+    """
+    # Encrypt sensitive keys before saving
+    if _crypto_available:
+        config_data = encrypt_config(config_data)
+
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=4, ensure_ascii=False)
     _restrict_permissions(CONFIG_FILE)
 
 
 def load_api_config() -> Optional[dict]:
-    """تحميل الإعدادات — ينشئ config.json بالقيم الافتراضية تلقائياً إذا لم يكن موجوداً."""
+    """
+    تحميل الإعدادات مع فك تشفير تلقائي للمفاتيح الحساسة.
+
+    Creates config.json with defaults if missing.
+    Decrypts encrypted values transparently.
+    """
     if not os.path.exists(CONFIG_FILE):
         save_api_config(copy.deepcopy(DEFAULT_CONFIG))
+
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            raw_config = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    # Decrypt sensitive keys
+    if _crypto_available:
+        return decrypt_config(raw_config)
+
+    return raw_config
+
+
+def load_api_config_raw() -> Optional[dict]:
+    """
+    Load config without decryption — returns raw values from disk.
+    Useful for checking if values are encrypted.
+    """
+    if not os.path.exists(CONFIG_FILE):
+        return None
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -153,7 +197,10 @@ def validate_config() -> list:
 
     provider = (config.get("provider") or "").strip().lower()
     if provider and provider not in SUPPORTED_PROVIDERS:
-        errors.append(f"Unknown provider '{provider}'. Supported: {', '.join(SUPPORTED_PROVIDERS)}")
+        errors.append(
+            f"Unknown provider '{provider}'. "
+            f"Supported: {', '.join(SUPPORTED_PROVIDERS)}"
+        )
 
     if provider == "custom" and not (config.get("base_url") or "").strip():
         errors.append("provider='custom' requires 'base_url' in config.json")
@@ -178,3 +225,78 @@ def get_config_summary() -> dict:
         "shodan":       "Configured" if config.get("shodan_api_key") else "Not set",
         "gophish":      "Configured" if config.get("gophish_api_key") else "Not set",
     }
+
+
+def get_encryption_status() -> dict:
+    """
+    Return encryption status for diagnostics.
+
+    Returns:
+        dict with crypto_available, master_key_exists, encrypted_keys info
+    """
+    status = {
+        "crypto_available": _crypto_available,
+        "master_key_exists": False,
+        "master_key_path": "",
+        "encrypted_keys": [],
+        "plaintext_keys": [],
+    }
+
+    if not _crypto_available:
+        return status
+
+    try:
+        vault = get_vault()
+        status["master_key_exists"] = vault.key_exists()
+        status["master_key_path"] = str(vault.get_key_path())
+
+        raw_config = load_api_config_raw() or {}
+        sensitive_keys = {
+            "api_key", "shodan_api_key",
+            "tg_bot_token", "gophish_api_key",
+        }
+        for key in sensitive_keys:
+            value = raw_config.get(key, "")
+            if value:
+                if is_encrypted(value):
+                    status["encrypted_keys"].append(key)
+                else:
+                    status["plaintext_keys"].append(key)
+    except Exception:
+        pass
+
+    return status
+
+
+def migrate_to_encrypted() -> bool:
+    """
+    Migrate existing plaintext keys to encrypted format.
+
+    Returns:
+        True if migration succeeded, False if already encrypted or no keys to migrate
+    """
+    if not _crypto_available:
+        return False
+
+    raw_config = load_api_config_raw()
+    if not raw_config:
+        return False
+
+    sensitive_keys = {
+        "api_key", "shodan_api_key",
+        "tg_bot_token", "gophish_api_key",
+    }
+    migrated = False
+
+    for key in sensitive_keys:
+        value = raw_config.get(key, "")
+        if value and not is_encrypted(value):
+            raw_config[key] = encrypt_config({key: value})[key]
+            migrated = True
+
+    if migrated:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(raw_config, f, indent=4, ensure_ascii=False)
+        _restrict_permissions(CONFIG_FILE)
+
+    return migrated

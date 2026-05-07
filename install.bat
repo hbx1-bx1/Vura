@@ -97,7 +97,7 @@ REM Create the wrapper batch file
     echo REM Launches GUI (no args^) or CLI (with args^).
     echo call "%VURA_HOME%.venv\Scripts\activate.bat"
     echo if "%%~1"=="" (
-    echo     python "%VURA_HOME%gui.py" %%*
+    echo     python "%VURA_HOME%run_gui.py" %%*
     echo ^) else (
     echo     python "%VURA_HOME%main.py" %%*
     echo ^)

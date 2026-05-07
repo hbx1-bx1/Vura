@@ -88,12 +88,12 @@ if [ ! -x \"\${VURA_PY}\" ]; then
     VURA_PY=\"\$(command -v python3)\"
 fi
 
-if [ \$# -eq 0 ]; then
+if [ $# -eq 0 ]; then
     # No arguments → launch GUI
-    exec \"\${VURA_PY}\" \"\${VURA_HOME}/gui.py\" \"\$@\"
+    exec "${VURA_PY}" "${VURA_HOME}/run_gui.py" "$@"
 else
     # With arguments → launch CLI
-    exec \"\${VURA_PY}\" \"\${VURA_HOME}/main.py\" \"\$@\"
+    exec "${VURA_PY}" "${VURA_HOME}/main.py" "$@"
 fi
 "
 

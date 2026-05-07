@@ -1,43 +1,88 @@
 """
-VURA Ghost Monitor — Invisible Terminal Session Recording
-══════════════════════════════════════════════════════════
-Cross-platform terminal session recorder.
-- macOS / Linux: uses the `script` command
-- Windows: uses PowerShell `Start-Transcript`
-Session data is cleaned and passed to AI for analysis.
+VURA Ghost Monitor — Compatibility Layer
+══════════════════════════════════════════
+Compatibility layer that delegates to the new pty-based terminal module.
+
+This file preserves the exact same API as the old monitor.py so that
+cli.py and other existing code continue to work without modification.
+
+New code should import from app.core.terminal instead:
+    from app.core.terminal import TerminalSession, HookAllEngine
 """
+
+from __future__ import annotations
 
 import os
 import json
-import subprocess
-import re
 import datetime
 import platform
-import shutil
-import signal
 from pathlib import Path
+from typing import Optional
+
 from rich.console import Console
+
+from app.core.terminal import (
+    TerminalSession,
+    HookAllEngine,
+    TerminalState,
+    get_hookall,
+)
 from app.utils.logger import log
 
 console = Console()
 
+# ══════════════════════════════════════════════════════════════════════
+# PATHS (kept for backward compatibility)
+# ══════════════════════════════════════════════════════════════════════
+
 IS_WIN = os.name == "nt"
 _PROJECT_ROOT = Path(__file__).parent.parent.parent.absolute()
-_DATA_DIR     = _PROJECT_ROOT / "data"
-LOG_FILE      = _DATA_DIR / ".vura_session.log"
-META_FILE     = _DATA_DIR / ".vura_session_meta.json"
+_DATA_DIR = _PROJECT_ROOT / "data"
+LOG_FILE = _DATA_DIR / ".vura_session.log"
+META_FILE = _DATA_DIR / ".vura_session_meta.json"
+
+# ── Global session reference (compatibility with old global state) ─
+_active_session: Optional[TerminalSession] = None
+_hookall_engine: Optional[HookAllEngine] = None
 
 
-def clean_ansi_escape_sequences(text):
+def _get_session() -> TerminalSession:
+    """Get or create the global TerminalSession."""
+    global _active_session
+    if _active_session is None:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _active_session = TerminalSession(
+            session_id="ghost",
+            log_file=LOG_FILE,
+            visible=True,
+            stream_mode="batch",
+        )
+    return _active_session
+
+
+def _get_hookall() -> HookAllEngine:
+    """Get or create the global HookAllEngine."""
+    global _hookall_engine
+    if _hookall_engine is None:
+        _hookall_engine = get_hookall(_DATA_DIR)
+    return _hookall_engine
+
+
+# ══════════════════════════════════════════════════════════════════════
+# ANSI CLEANING (kept for backward compatibility)
+# ══════════════════════════════════════════════════════════════════════
+
+def clean_ansi_escape_sequences(text: str) -> str:
     """حذف ANSI escape codes من النص — ألوان Terminal وحركات المؤشر."""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    cleaned = ansi_escape.sub('', text)
-    # حذف أحرف التحكم (backspace, carriage return, etc.)
-    cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', cleaned)
-    return cleaned
+    from app.core.terminal import strip_ansi_str
+    return strip_ansi_str(text)
 
 
-def _save_session_meta(action):
+# ══════════════════════════════════════════════════════════════════════
+# SESSION METADATA (backward compatibility)
+# ══════════════════════════════════════════════════════════════════════
+
+def _save_session_meta(action: str) -> None:
     """حفظ بيانات الجلسة الوصفية."""
     meta = {
         "action": action,
@@ -55,7 +100,7 @@ def _save_session_meta(action):
         pass
 
 
-def _get_session_size():
+def _get_session_size() -> str:
     """حجم ملف الجلسة الحالي."""
     if LOG_FILE.exists():
         size = LOG_FILE.stat().st_size
@@ -68,129 +113,52 @@ def _get_session_size():
     return "0 bytes"
 
 
-def _start_windows_transcript(silent=False):
-    """
-    Windows Ghost Monitor using PowerShell Start-Transcript.
-    Opens a new PowerShell window that records everything to LOG_FILE.
-    """
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    log_path_str = str(LOG_FILE)
+# ══════════════════════════════════════════════════════════════════════
+# GHOST MONITOR (delegates to TerminalSession)
+# ══════════════════════════════════════════════════════════════════════
 
-    # PowerShell script: start transcript, inform user, wait for exit
-    ps_commands = (
-        f"Start-Transcript -Path '{log_path_str}' -Append; "
-        "Write-Host '[VURA Ghost Monitor] Recording... Type exit when done.' -ForegroundColor Green; "
-        "& $env:COMSPEC; "
-        "Stop-Transcript"
-    )
-
-    if not silent:
-        if LOG_FILE.exists():
-            size = _get_session_size()
-            console.print(f"\n[bold cyan][+] Resuming previous VURA Ghost Session ({size})...[/bold cyan]")
-        else:
-            console.print(f"\n[bold green][+] Starting new VURA Ghost Monitor (Windows)...[/bold green]")
-        console.print("[bold yellow][!] A PowerShell window will open. Type [bold red]'exit'[/bold red] to stop recording.[/bold yellow]\n")
-
-    _save_session_meta("start")
-    log.info("Ghost Monitor started (Windows PowerShell Transcript)")
-
-    try:
-        subprocess.run(
-            ["powershell", "-NoExit", "-Command", ps_commands],
-            creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0) if IS_WIN else 0,
-        )
-
-        if not silent:
-            size = _get_session_size()
-            console.print(f"\n[bold cyan][~] Session Paused & Saved safely! ({size})[/bold cyan]")
-            console.print("[dim white]Run 'vura -H' to resume, or 'vura -R' to generate report.[/dim white]\n")
-
-        _save_session_meta("pause")
-        log.info("Ghost Monitor paused (Windows)", size=_get_session_size())
-
-    except FileNotFoundError:
-        if not silent:
-            console.print("[bold red][!] PowerShell not found. Please install PowerShell 5.1+.[/bold red]")
-        log.error("PowerShell not found on Windows")
-    except KeyboardInterrupt:
-        if not silent:
-            console.print("\n[bold yellow][~] Session interrupted by user.[/bold yellow]")
-        log.info("Ghost Monitor interrupted by user (Windows)")
-    except Exception as e:
-        if not silent:
-            console.print(f"[bold red][!] Error during monitoring: {e}[/bold red]")
-        log.exception("Ghost Monitor error (Windows)", e)
-
-
-def start_ghost_monitor(silent=False):
+def start_ghost_monitor(silent: bool = False) -> None:
     """
     بدء تسجيل Terminal session.
 
-    Parameters:
-        silent : True = بدون أي طباعة — للتشغيل التلقائي
+    Delegates to TerminalSession.start() with visible=True.
     """
-    # ── Windows: PowerShell Start-Transcript ──
-    if IS_WIN:
-        _start_windows_transcript(silent)
-        return
-
-    # ── macOS / Linux: script command ──
-    user_shell = os.environ.get("SHELL", "/bin/bash")
-
-    if not shutil.which("script"):
-        if not silent:
-            console.print("[bold red][!] 'script' command not found. Install 'util-linux' (Linux) or use a supported OS.[/bold red]")
-        log.error("script command not found")
-        return
-
+    global _active_session
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if not silent:
         if LOG_FILE.exists():
             size = _get_session_size()
-            console.print(f"\n[bold cyan][+] Resuming previous VURA Ghost Session ({size})...[/bold cyan]")
+            console.print(
+                f"\n[bold cyan][+] Resuming previous VURA Ghost Session ({size})...[/bold cyan]"
+            )
         else:
-            console.print(f"\n[bold green][+] Starting new VURA Ghost Monitor...[/bold green]")
-        console.print("[bold yellow][!] Session is recording. Type [bold red]'exit'[/bold red] to pause/save.[/bold yellow]\n")
+            console.print(
+                f"\n[bold green][+] Starting new VURA Ghost Monitor...[/bold green]"
+            )
+        console.print(
+            "[bold yellow][!] Session is recording. "
+            "Type [bold red]'exit'[/bold red] to pause/save.[/bold yellow]\n"
+        )
 
     _save_session_meta("start")
-    log.info("Ghost Monitor started", shell=user_shell, os=platform.system())
-
-    if platform.system() == "Darwin":
-        command = ["script", "-q", "-a", str(LOG_FILE), user_shell]
-    else:
-        command = ["script", "-q", "-a", "-c", user_shell, str(LOG_FILE)]
 
     try:
-        result = subprocess.run(command)
-
-        if result.returncode != 0 and not silent:
-            console.print(f"[bold yellow][!] script exited with code {result.returncode}[/bold yellow]")
-
-        if not silent:
-            size = _get_session_size()
-            console.print(f"\n[bold cyan][~] Session Paused & Saved safely! ({size})[/bold cyan]")
-            console.print("[dim white]Run 'vura -H' to resume, or 'vura -R' to generate report.[/dim white]\n")
-
-        _save_session_meta("pause")
-        log.info("Ghost Monitor paused", size=_get_session_size())
-
-    except FileNotFoundError:
-        if not silent:
-            console.print("[bold red][!] 'script' command not found on this system.[/bold red]")
-        log.error("script command FileNotFoundError")
-    except KeyboardInterrupt:
-        if not silent:
-            console.print("\n[bold yellow][~] Session interrupted by user.[/bold yellow]")
-        log.info("Ghost Monitor interrupted by user")
+        _active_session = TerminalSession(
+            session_id="ghost",
+            log_file=LOG_FILE,
+            visible=True,
+            stream_mode="batch",
+        )
+        info = _active_session.start()
+        log.info("Ghost Monitor started", shell=info.shell, os=platform.system())
     except Exception as e:
         if not silent:
             console.print(f"[bold red][!] Error during monitoring: {e}[/bold red]")
         log.exception("Ghost Monitor error", e)
 
 
-def end_ghost_monitor():
+def end_ghost_monitor() -> Optional[str]:
     """
     إيقاف الـ Ghost Monitor واستخراج البيانات النظيفة.
 
@@ -198,57 +166,83 @@ def end_ghost_monitor():
         str : البيانات المُنظّفة من ANSI codes — جاهزة للـ AI
         None : إذا لم تكن هناك جلسة نشطة
     """
+    global _active_session
+
     if not LOG_FILE.exists():
-        console.print("[bold red][!] No active session found. Run 'vura -H' first.[/bold red]")
+        console.print(
+            "[bold red][!] No active session found. Run 'vura -H' first.[/bold red]"
+        )
         log.warn("end_ghost_monitor called but no session file found")
         return None
 
-    try:
-        raw_data = LOG_FILE.read_text(encoding="utf-8", errors="ignore")
-    except Exception as e:
-        console.print(f"[bold red][!] Cannot read session file: {e}[/bold red]")
-        log.error("Cannot read session file", error=str(e))
-        return None
+    # If there's an active session, stop it properly
+    if _active_session and _active_session.is_active:
+        clean_data = _active_session.stop()
+    else:
+        # Fallback: read from log file directly
+        try:
+            raw_data = LOG_FILE.read_text(encoding="utf-8", errors="ignore")
+            clean_data = clean_ansi_escape_sequences(raw_data)
+        except Exception as e:
+            console.print(
+                f"[bold red][!] Cannot read session file: {e}[/bold red]"
+            )
+            log.error("Cannot read session file", error=str(e))
+            return None
 
-    clean_data = clean_ansi_escape_sequences(raw_data)
-
-    # ── حذف الملف ──
+    # Clean up log file
     try:
         LOG_FILE.unlink()
     except Exception:
         pass
 
-    # ── حذف الـ meta ──
     try:
         if META_FILE.exists():
             META_FILE.unlink()
     except Exception:
         pass
 
+    _active_session = None
+
     char_count = len(clean_data)
-    console.print(f"[bold green][+] Captured {char_count:,} characters for the final report![/bold green]")
+    console.print(
+        f"[bold green][+] Captured {char_count:,} characters for the final report![/bold green]"
+    )
     log.info("Ghost Monitor ended", chars=char_count)
 
     _save_session_meta("end")
 
     if char_count < 10:
-        console.print("[bold yellow][!] Warning: Very short session. Report may be empty.[/bold yellow]")
+        console.print(
+            "[bold yellow][!] Warning: Very short session. Report may be empty.[/bold yellow]"
+        )
         log.warn("Very short session captured", chars=char_count)
 
     return clean_data
 
 
-def is_session_active():
+def is_session_active() -> bool:
     """هل يوجد session نشطة حالياً."""
+    if _active_session and _active_session.is_active:
+        return True
     return LOG_FILE.exists()
 
 
-def get_session_info():
+def get_session_info() -> Optional[dict]:
     """معلومات عن الجلسة الحالية."""
-    if not LOG_FILE.exists():
+    if not LOG_FILE.exists() and not (_active_session and _active_session.is_active):
         return None
 
-    info = {"size": _get_session_size(), "path": str(LOG_FILE)}
+    info: dict = {"size": _get_session_size(), "path": str(LOG_FILE)}
+
+    if _active_session and _active_session.is_active:
+        terminal_info = _active_session.get_info()
+        info.update({
+            "state": terminal_info.state.value,
+            "shell": terminal_info.shell,
+            "bytes_captured": terminal_info.bytes_captured,
+            "pid": terminal_info.pid,
+        })
 
     if META_FILE.exists():
         try:
@@ -260,9 +254,16 @@ def get_session_info():
     return info
 
 
-def discard_session():
+def discard_session() -> None:
     """حذف الجلسة بدون توليد تقرير."""
+    global _active_session
+
     deleted = False
+    if _active_session and _active_session.is_active:
+        _active_session.discard()
+        deleted = True
+        _active_session = None
+
     for f in [LOG_FILE, META_FILE]:
         try:
             if f.exists():
@@ -278,239 +279,175 @@ def discard_session():
         console.print("[dim]No active session to discard.[/dim]")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# HOOKALL — Record ALL Open Terminals Simultaneously
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+# HOOKALL (delegates to HookAllEngine)
+# ══════════════════════════════════════════════════════════════════════
 
-HOOKALL_LOG    = _DATA_DIR / ".vura_hookall.log"
-HOOKALL_PIDS   = _DATA_DIR / ".vura_hookall_pids"
-EXCLUDE_FILE   = _DATA_DIR / ".vura_exclude_pts"
-
-
-def _get_current_pts():
-    """الحصول على مسار الـ pts للطرفية الحالية."""
-    if IS_WIN:
-        # Windows: no tty concept; return a pseudo-identifier
-        try:
-            pid = os.getpid()
-            return f"WIN-PID-{pid}"
-        except Exception:
-            return None
-    try:
-        return subprocess.check_output(["tty"], text=True, stderr=subprocess.DEVNULL).strip()
-    except Exception:
-        return None
-
-
-def _get_active_terminals():
-    """
-    اكتشاف كل الطرفيات النشطة للمستخدم الحالي.
-    - Windows: uses psutil to find cmd.exe / powershell.exe / pwsh.exe
-    - macOS/Linux: uses `who` command + /dev/pts fallback
-    """
-    terminals = []
-
-    if IS_WIN:
-        # Windows: find interactive console host processes
-        try:
-            import psutil
-            WIN_SHELLS = {"cmd.exe", "powershell.exe", "pwsh.exe"}
-            for proc in psutil.process_iter(["pid", "name", "status"]):
-                try:
-                    info = proc.info
-                    pname = (info.get("name") or "").lower()
-                    if pname in WIN_SHELLS and info.get("status") != "zombie":
-                        terminals.append(f"WIN-PID-{info['pid']}")
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-        except ImportError:
-            pass
-        return sorted(set(terminals))
-
-    # macOS / Linux
-    user = os.environ.get("USER", os.environ.get("LOGNAME", ""))
-
-    try:
-        output = subprocess.check_output(["who"], text=True, stderr=subprocess.DEVNULL)
-        for line in output.splitlines():
-            parts = line.split()
-            if len(parts) >= 2:
-                if user and parts[0] != user:
-                    continue
-                pts_name = parts[1]
-                pts_path = f"/dev/{pts_name}"
-                if Path(pts_path).exists():
-                    terminals.append(pts_path)
-    except Exception:
-        pass
-
-    # fallback: البحث في /dev/pts/ مباشرة
-    if not terminals:
-        pts_dir = Path("/dev/pts")
-        try:
-            if pts_dir.is_dir():
-                for entry in pts_dir.iterdir():
-                    if entry.name.isdigit() and os.access(entry, os.R_OK):
-                        terminals.append(str(entry))
-        except Exception:
-            pass
-
-    return sorted(set(terminals))
-
-
-def _load_excluded():
-    """تحميل قائمة الطرفيات المستبعدة."""
-    if EXCLUDE_FILE.exists():
-        try:
-            return {line.strip() for line in EXCLUDE_FILE.read_text().splitlines() if line.strip()}
-        except Exception:
-            pass
-    return set()
-
-
-def exclude_terminal():
+def exclude_terminal() -> None:
     """
     استبعاد الطرفية الحالية من hookall.
     الأمر: vura -e
     """
-    pts = _get_current_pts()
+    # Get current terminal
+    import subprocess
+    try:
+        pts = subprocess.check_output(
+            ["tty"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except Exception:
+        if IS_WIN:
+            pts = f"WIN-PID-{os.getpid()}"
+        else:
+            pts = ""
+
     if not pts or "not a tty" in pts:
-        console.print("[bold red][!] Cannot detect current terminal. Are you in a TTY?[/bold red]")
+        console.print(
+            "[bold red][!] Cannot detect current terminal. "
+            "Are you in a TTY?[/bold red]"
+        )
         return
 
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    excluded = _load_excluded()
-    excluded.add(pts)
-
-    EXCLUDE_FILE.write_text("\n".join(sorted(excluded)) + "\n")
+    engine = _get_hookall()
+    engine.exclude(pts)
 
     console.print(f"[bold yellow][-] Terminal excluded: {pts}[/bold yellow]")
     console.print("[dim]This terminal will NOT be recorded by hookall.[/dim]")
     log.info("Terminal excluded from hookall", pts=pts)
 
 
-def start_hookall(silent=False):
+def start_hookall(silent: bool = False) -> None:
     """
     بدء تسجيل جميع الطرفيات المفتوحة في النظام.
     الأمر: vura -Ha
 
-    يعمل عن طريق:
-    1. اكتشاف كل الـ pts النشطة
-    2. استبعاد الطرفيات المُعلّمة بـ -e
-    3. تشغيل عملية قراءة خلفية لكل طرفية
-    4. تجميع كل المخرجات في ملف واحد
+    Delegates to HookAllEngine.read_all() with parallel reading.
     """
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+    engine = _get_hookall()
+    terminals = engine.discover()
 
-    # ── اكتشاف الطرفيات ──
-    all_terminals = _get_active_terminals()
-    if not all_terminals:
+    if not terminals:
         if not silent:
             console.print("[bold red][!] No active terminals found.[/bold red]")
         return
 
-    # ── استبعاد المُعلَّمة ──
-    excluded = _load_excluded()
-    current_pts = _get_current_pts()
-    if current_pts:
-        excluded.add(current_pts)
+    targets = [t for t in terminals if not t.is_excluded]
+    excluded = [t for t in terminals if t.is_excluded]
 
-    targets = [t for t in all_terminals if t not in excluded]
+    # Auto-exclude current terminal
+    import subprocess
+    try:
+        current_pts = subprocess.check_output(
+            ["tty"], text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except Exception:
+        current_pts = ""
+
+    if current_pts:
+        engine.exclude(current_pts)
+        targets = [t for t in targets if t.pts_path != current_pts]
 
     if not targets:
         if not silent:
-            console.print("[bold yellow][!] All terminals are excluded. Nothing to record.[/bold yellow]")
-            console.print(f"[dim]Found: {len(all_terminals)} | Excluded: {len(excluded)}[/dim]")
+            console.print(
+                "[bold yellow][!] All terminals are excluded. "
+                "Nothing to record.[/bold yellow]"
+            )
+            console.print(
+                f"[dim]Found: {len(terminals)} | "
+                f"Excluded: {len(excluded) + 1}[/dim]"
+            )
         return
 
     if not silent:
-        console.print(f"\n[bold green][+] VURA Hookall — Recording {len(targets)} terminal(s)...[/bold green]")
+        console.print(
+            f"\n[bold green][+] VURA Hookall — "
+            f"Reading {len(targets)} terminal(s)...[/bold green]"
+        )
         for t in targets:
-            console.print(f"    [cyan]→ {t}[/cyan]")
+            console.print(f"    [cyan]→ {t.pts_path} ({t.shell_name})[/cyan]")
         if excluded:
-            console.print(f"    [dim]Excluded: {len(excluded)} terminal(s)[/dim]")
-        console.print(f"\n[bold yellow][!] Recording in background. Run 'vura -R' to stop and generate report.[/bold yellow]\n")
+            console.print(
+                f"    [dim]Excluded: {len(excluded)} terminal(s)[/dim]"
+            )
+        console.print(
+            "\n[bold yellow][!] Reading now. "
+            "Run 'vura -R' to generate report.[/bold yellow]\n"
+        )
 
-    # ── تشغيل القراءة الخلفية ──
-    pids = []
-    try:
-        with open(HOOKALL_LOG, "a", encoding="utf-8", errors="ignore") as log_handle:
-            for pts_id in targets:
-                try:
-                    if IS_WIN:
-                        # Windows: cannot `cat` a PID — skip background attach
-                        # (Windows hookall is handled in the GUI via psutil snapshot)
-                        continue
-                    proc = subprocess.Popen(
-                        ["cat", pts_id],
-                        stdout=log_handle,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True,
-                    )
-                    pids.append(str(proc.pid))
-                    if not silent:
-                        console.print(f"    [dim]PID {proc.pid} → {pts_id}[/dim]")
-                except Exception as e:
-                    if not silent:
-                        console.print(f"    [dim red]Cannot attach to {pts_id}: {e}[/dim red]")
+    # Read from all terminals (parallel, thread-safe)
+    result = engine.read_all(timeout=3.0)
 
-        HOOKALL_PIDS.write_text("\n".join(pids))
-        log.info("Hookall started", terminals=len(targets), pids=len(pids))
-
-    except Exception as e:
-        if not silent:
-            console.print(f"[bold red][!] Hookall failed: {e}[/bold red]")
-        log.error("Hookall start failed", error=str(e))
-
-
-def stop_hookall():
-    """
-    إيقاف hookall وإرجاع البيانات المجمّعة.
-    يُستدعى من end_ghost_monitor إذا كان hookall نشطاً.
-    """
-    # ── إيقاف العمليات الخلفية ──
-    if HOOKALL_PIDS.exists():
+    if result.aggregated_text:
+        # Save aggregated data for later use
+        hookall_log = _DATA_DIR / ".vura_hookall.log"
         try:
-            pids = [p.strip() for p in HOOKALL_PIDS.read_text().splitlines() if p.strip()]
-
-            for pid in pids:
-                try:
-                    pid_int = int(pid)
-                    if IS_WIN:
-                        os.kill(pid_int, signal.SIGTERM)
-                    else:
-                        os.kill(pid_int, signal.SIGKILL)
-                except (ProcessLookupError, ValueError, PermissionError):
-                    pass
-
-            HOOKALL_PIDS.unlink()
-            console.print(f"[bold cyan][~] Hookall stopped ({len(pids)} recorder(s) terminated).[/bold cyan]")
-        except Exception:
+            hookall_log.write_text(
+                result.aggregated_text, encoding="utf-8"
+            )
+        except OSError:
             pass
 
-    # ── قراءة البيانات المجمّعة ──
-    if HOOKALL_LOG.exists():
-        try:
-            raw_data = HOOKALL_LOG.read_text(encoding="utf-8", errors="ignore")
-            clean_data = clean_ansi_escape_sequences(raw_data)
-            HOOKALL_LOG.unlink()
+        if not silent:
+            console.print(
+                f"[bold green][+] HookAll captured "
+                f"{result.total_bytes:,} chars from "
+                f"{result.terminals_read} terminal(s)[/bold green]"
+            )
+            log.info(
+                "HookAll completed",
+                terminals=result.terminals_read,
+                bytes=result.total_bytes,
+            )
 
-            console.print(f"[bold green][+] Hookall captured {len(clean_data):,} characters from all terminals![/bold green]")
+    if result.errors and not silent:
+        for err in result.errors:
+            console.print(f"    [dim red]✘ {err}[/dim red]")
+
+
+def stop_hookall() -> Optional[str]:
+    """
+    إيقاف hookall وإرجاع البيانات المجمّعة.
+
+    Reads the aggregated hookall log file.
+    """
+    hookall_log = _DATA_DIR / ".vura_hookall.log"
+
+    if hookall_log.exists():
+        try:
+            raw_data = hookall_log.read_text(
+                encoding="utf-8", errors="ignore"
+            )
+            clean_data = clean_ansi_escape_sequences(raw_data)
+            hookall_log.unlink()
+
+            console.print(
+                f"[bold green][+] Hookall captured "
+                f"{len(clean_data):,} characters from all terminals![/bold green]"
+            )
             log.info("Hookall ended", chars=len(clean_data))
             return clean_data
         except Exception:
             pass
 
+    # Fallback: try the engine directly
+    engine = _get_hookall()
+    if engine.is_active:
+        result = engine.read_all(timeout=2.0)
+        if result.aggregated_text:
+            return clean_ansi_escape_sequences(result.aggregated_text)
+
     return None
 
 
-def is_hookall_active():
+def is_hookall_active() -> bool:
     """هل hookall يعمل حالياً."""
-    return HOOKALL_PIDS.exists()
+    hookall_log = _DATA_DIR / ".vura_hookall.log"
+    return hookall_log.exists()
 
 
-def clear_excluded():
+def clear_excluded() -> None:
     """مسح قائمة الطرفيات المستبعدة."""
-    if EXCLUDE_FILE.exists():
-        EXCLUDE_FILE.unlink()
-        console.print("[green][+] Exclude list cleared.[/green]")
+    engine = _get_hookall()
+    for pts in engine.get_excluded():
+        engine.unexclude(pts)
+    console.print("[green][+] Exclude list cleared.[/green]")
