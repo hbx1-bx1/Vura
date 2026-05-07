@@ -30,22 +30,22 @@ from app.utils.config import save_api_config, load_api_config, SUPPORTED_PROVIDE
 
 console = Console()
 
-VURA_VERSION = "1.0.0"
+VURA_VERSION = "2.0.0"
 
 
 def show_pro_banner():
     banner_text = r"""
-    __      __ _    _  _____            
-    \ \    / /| |  | ||  __ \    /\     
-     \ \  / / | |  | || |__) |  /  \    
-      \ \/ /  | |  | ||  _  /  / /\ \   
-       \  /   | |__| || | \ \ / ____ \  
-        \/     \____/ |_|  \_/_/    \_\
-    """
+ ██╗   ██╗██╗   ██╗██████╗  █████╗ 
+ ██║   ██║██║   ██║██╔══██╗██╔══██╗
+ ██║   ██║██║   ██║██████╔╝███████║
+ ╚██╗ ██╔╝██║   ██║██╔══██╗██╔══██║
+  ╚████╔╝ ╚██████╔╝██║  ██║██║  ██║
+   ╚═══╝   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
+"""
     console.print(Align.center(Text(banner_text, style="bold green")))
     console.print(Align.center(Text("Vulnerability Reporting AI", style="italic cyan")))
     console.print(Align.center(Text(f"v{VURA_VERSION}", style="dim white")))
-    console.print(Align.center(Text("—" * 50, style="dim white")))
+    console.print(Align.center(Text("-" * 50, style="dim white")))
 
 
 def show_custom_help():
@@ -54,7 +54,7 @@ def show_custom_help():
 
     # ── Core Analysis ──
     table_core = Table(
-        title="[bold yellow]🎯 Core Analysis Commands[/bold yellow]",
+        title="[bold yellow]Core Analysis Commands[/bold yellow]",
         show_lines=True, header_style="bold magenta", title_justify="left"
     )
     table_core.add_column("Short", style="bold green", justify="center")
@@ -72,7 +72,7 @@ def show_custom_help():
 
     # ── Output & Strategy ──
     table_mods = Table(
-        title="[bold yellow]🎨 Output & Strategy[/bold yellow]",
+        title="[bold yellow]Output & Strategy[/bold yellow]",
         show_lines=True, header_style="bold magenta", title_justify="left"
     )
     table_mods.add_column("Short", style="bold green", justify="center")
@@ -86,7 +86,7 @@ def show_custom_help():
 
     # ── System ──
     table_sys = Table(
-        title="[bold yellow]⚙️ System & Recovery[/bold yellow]",
+        title="[bold yellow]System & Recovery[/bold yellow]",
         show_lines=True, header_style="bold magenta", title_justify="left"
     )
     table_sys.add_column("Short", style="bold green", justify="center")
@@ -102,7 +102,7 @@ def show_custom_help():
     console.print(table_sys)
 
     # ── Examples ──
-    console.print("\n[bold yellow]📝 Examples:[/bold yellow]")
+    console.print("\n[bold yellow]Examples:[/bold yellow]")
     console.print("  [dim]vura -H                          [/dim]Start recording current terminal")
     console.print("  [dim]vura -Ha                         [/dim]Record ALL open terminals")
     console.print("  [dim]vura -e                          [/dim]Exclude this terminal from hookall")

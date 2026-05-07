@@ -22,10 +22,10 @@ RESET='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════╗${RESET}"
-echo -e "${CYAN}║   🛡️  VURA Installer — v1.0.0            ║${RESET}"
-echo -e "${CYAN}║   Vulnerability Reporting AI             ║${RESET}"
-echo -e "${CYAN}╚══════════════════════════════════════════╝${RESET}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════╗${RESET}"
+echo -e "${CYAN}║   VURA Installer -- v2.0.0                       ║${RESET}"
+echo -e "${CYAN}║   Vulnerability Reporting AI                     ║${RESET}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
 # ── Step 1: Check Python ───────────────────────────────────────
@@ -33,9 +33,9 @@ echo -e "${YELLOW}[1/4]${RESET} Checking Python installation..."
 if command -v python3 &>/dev/null; then
     PY="python3"
     PY_VER=$($PY --version 2>&1)
-    echo -e "  ${GREEN}✔${RESET} Found: ${PY_VER}"
+    echo -e "  ${GREEN}[OK]${RESET} Found: ${PY_VER}"
 else
-    echo -e "  ${RED}✘ Python 3 not found. Please install Python 3.10+ first.${RESET}"
+    echo -e "  ${RED}[ERR] Python 3 not found. Please install Python 3.10+ first.${RESET}"
     exit 1
 fi
 
@@ -43,7 +43,7 @@ fi
 echo ""
 echo -e "${YELLOW}[2/4]${RESET} Installing Python dependencies..."
 if [ ! -f "${SCRIPT_DIR}/requirements.txt" ]; then
-    echo -e "  ${RED}✘ requirements.txt not found in ${SCRIPT_DIR}${RESET}"
+    echo -e "  ${RED}[ERR] requirements.txt not found in ${SCRIPT_DIR}${RESET}"
     exit 1
 fi
 
@@ -56,7 +56,7 @@ fi
 VENV_PY="${VENV_DIR}/bin/python"
 "${VENV_PY}" -m pip install --quiet --upgrade pip 2>/dev/null || true
 "${VENV_PY}" -m pip install --quiet -r "${SCRIPT_DIR}/requirements.txt"
-echo -e "  ${GREEN}✔${RESET} Dependencies installed into venv"
+echo -e "  ${GREEN}[OK]${RESET} Dependencies installed into venv"
 
 # ── Step 3: Create config.json if missing ─────────────────────
 echo ""
@@ -64,10 +64,10 @@ echo -e "${YELLOW}[3/4]${RESET} Checking configuration..."
 if [ ! -f "${SCRIPT_DIR}/config.json" ]; then
     cp "${SCRIPT_DIR}/config.example.json" "${SCRIPT_DIR}/config.json"
     chmod 600 "${SCRIPT_DIR}/config.json"
-    echo -e "  ${GREEN}✔${RESET} Created config.json from template"
+    echo -e "  ${GREEN}[OK]${RESET} Created config.json from template"
     echo -e "  ${DIM}Run 'vura -Ch' after installation to set your API keys.${RESET}"
 else
-    echo -e "  ${GREEN}✔${RESET} config.json already exists"
+    echo -e "  ${GREEN}[OK]${RESET} config.json already exists"
 fi
 
 # Ensure data & reports directories exist
@@ -105,24 +105,24 @@ INSTALL_PATH="${INSTALL_DIR}/vura"
 if [ -w "$INSTALL_DIR" ]; then
     echo "$WRAPPER_CONTENT" > "$INSTALL_PATH"
     chmod +x "$INSTALL_PATH"
-    echo -e "  ${GREEN}✔${RESET} Installed to ${INSTALL_PATH}"
+    echo -e "  ${GREEN}[OK]${RESET} Installed to ${INSTALL_PATH}"
 else
     echo -e "  ${DIM}Requires sudo to write to ${INSTALL_DIR}${RESET}"
     echo "$WRAPPER_CONTENT" | sudo tee "$INSTALL_PATH" > /dev/null
     sudo chmod +x "$INSTALL_PATH"
-    echo -e "  ${GREEN}✔${RESET} Installed to ${INSTALL_PATH} (with sudo)"
+    echo -e "  ${GREEN}[OK]${RESET} Installed to ${INSTALL_PATH} (with sudo)"
 fi
 
 # ── Done ──────────────────────────────────────────────────────
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${GREEN}║                                                          ║${RESET}"
-echo -e "${GREEN}║   ✅  VURA is successfully installed!                    ║${RESET}"
-echo -e "${GREEN}║                                                          ║${RESET}"
-echo -e "${GREEN}║   Just type ${CYAN}vura${GREEN} to launch the GUI.                    ║${RESET}"
-echo -e "${GREEN}║   Type ${CYAN}vura -h${GREEN} for CLI commands.                       ║${RESET}"
-echo -e "${GREEN}║                                                          ║${RESET}"
-echo -e "${GREEN}║   First time? Run ${CYAN}vura -Ch${GREEN} to configure your AI key.   ║${RESET}"
-echo -e "${GREEN}║                                                          ║${RESET}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${RESET}"
+echo -e "${GREEN}╔══════════════════════════════════════════════════╗${RESET}"
+echo -e "${GREEN}║                                                  ║${RESET}"
+echo -e "${GREEN}║   VURA is successfully installed!                ║${RESET}"
+echo -e "${GREEN}║                                                  ║${RESET}"
+echo -e "${GREEN}║   Just type ${CYAN}vura${GREEN} to launch the GUI.              ║${RESET}"
+echo -e "${GREEN}║   Type ${CYAN}vura -h${GREEN} for CLI commands.                 ║${RESET}"
+echo -e "${GREEN}║                                                  ║${RESET}"
+echo -e "${GREEN}║   First time? Run ${CYAN}vura -Ch${GREEN} to configure your key. ║${RESET}"
+echo -e "${GREEN}║                                                  ║${RESET}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""

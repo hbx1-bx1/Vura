@@ -11,10 +11,10 @@ REM ═════════════════════════�
 setlocal EnableDelayedExpansion
 
 echo.
-echo  ======================================
-echo   VURA Installer — v1.0.0
+echo  ==========================================
+echo   VURA Installer -- v2.0.0
 echo   Vulnerability Reporting AI
-echo  ======================================
+echo  ==========================================
 echo.
 
 REM ── Step 1: Check Python ─────────────────────────────────────
@@ -131,15 +131,15 @@ echo   [OK] Created vura.bat wrapper
 
 REM ── Done ─────────────────────────────────────────────────────
 echo.
-echo  ══════════════════════════════════════════════════════
+echo  ==========================================
 echo.
 echo   [OK] VURA is successfully installed!
 echo.
-echo   Just type 'vura' to launch the GUI.
-echo   Type 'vura -h' for CLI commands.
+echo   Just type vura to launch the GUI.
+echo   Type vura -h for CLI commands.
 echo.
-echo   First time? Run 'vura -Ch' to configure your AI key.
+echo   First time? Run vura -Ch to configure your key.
 echo.
-echo  ══════════════════════════════════════════════════════
+echo  ==========================================
 echo.
 pause

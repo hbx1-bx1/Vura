@@ -35,7 +35,7 @@ from app.utils.logger import log
 
 console = Console()
 
-# ✅ FIX #4 — مسارات مطلقة بدلاً من النسبية
+# FIX #4 — مسارات مطلقة بدلاً من النسبية
 _PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 STATE_FILE     = _PROJECT_ROOT / "data" / ".vura_state.json"
 
@@ -73,20 +73,25 @@ def get_last_status():
 
 # ── Report Types ─────────────────────────────────────────────────────
 REPORT_TYPES = {
-    "1": {"name": "Network Scan",              "icon": "🌐", "has_script": True,
-           "context": "Network infrastructure scan — analyze ports, services, firewalls, routing, and network-level vulnerabilities."},
-    "2": {"name": "Web Application",           "icon": "🕸️",  "has_script": True,
-           "context": "Web application security test — analyze XSS, SQL injection, CSRF, security headers, authentication flaws, and web-specific vulnerabilities."},
-    "3": {"name": "Recon / OSINT",             "icon": "🔍", "has_script": True,
-           "context": "Reconnaissance and OSINT operation — analyze discovered subdomains, emails, exposed services, attack surface, and intelligence gathered from public sources."},
-    "4": {"name": "Vulnerability Assessment",  "icon": "🛡️",  "has_script": True,
-           "context": "General vulnerability assessment — identify all security weaknesses, classify by severity (CVSS), and provide remediation guidance."},
-    "5": {"name": "Custom",                    "icon": "📝", "has_script": False,
+    "1": {"name": "Network Scan",
+           "has_script": True,
+           "context": "Network infrastructure scan -- analyze ports, services, firewalls, routing, and network-level vulnerabilities."},
+    "2": {"name": "Web Application",
+           "has_script": True,
+           "context": "Web application security test -- analyze XSS, SQL injection, CSRF, security headers, authentication flaws, and web-specific vulnerabilities."},
+    "3": {"name": "Recon / OSINT",
+           "has_script": True,
+           "context": "Reconnaissance and OSINT operation -- analyze discovered subdomains, emails, exposed services, attack surface, and intelligence gathered from public sources."},
+    "4": {"name": "Vulnerability Assessment",
+           "has_script": True,
+           "context": "General vulnerability assessment -- identify all security weaknesses, classify by severity (CVSS), and provide remediation guidance."},
+    "5": {"name": "Custom",
+           "has_script": False,
            "context": ""},
 }
 
-# ✅ FIX #1 (CRITICAL) — إعادة كتابة process_and_report بالكامل
-# ✅ FIX #5 — دعم خيار -A من CLI بدون override
+# FIX #1 (CRITICAL) — إعادة كتابة process_and_report بالكامل
+# FIX #5 — دعم خيار -A من CLI بدون override
 def process_and_report(raw_data, tool_name=None, context=None, output_format="md",
                        language="English", notify=None, approach="defense",
                        cli_approach=None, scan_type="terminal"):
@@ -118,7 +123,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
     console.print(f"[bold cyan]{'─'*50}[/bold cyan]")
 
     for key, rtype in REPORT_TYPES.items():
-        console.print(f"  [bold green]{key}[/bold green]. {rtype['icon']}  {rtype['name']}")
+        console.print(f"  [bold green]{key}[/bold green]. {rtype['name']}")
 
     console.print()
     report_choice = Prompt.ask(
@@ -140,7 +145,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
         else:
             report_context = "General security analysis"
 
-    console.print(f"\n[bold green][✔] Report type: {chosen_type['icon']}  {report_label}[/bold green]")
+    console.print(f"\n[bold green]Report type: {report_label}[/bold green]")
 
     # ══════════════════════════════════════════════════════════════════════
     # المرحلة 2: توليد التقرير — الـ AI يعرف النوع ويحلل بناءً عليه
@@ -188,7 +193,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
     if is_error:
         console.print("\n[bold red][!] API Error or High Load! Report generation failed.[/bold red]")
-        console.print(f"[bold yellow]🔍 Debug Info:[/bold yellow] [white]{final_report_content.strip()[:300]}[/white]")
+        console.print(f"[bold yellow]Debug Info:[/bold yellow] [white]{final_report_content.strip()[:300]}[/white]")
         console.print("[dim white]Run 'vura -Rc' to try again without losing your data.[/dim white]")
         save_state(raw_data, tool_name, context, output_format, language, notify,
                    approach, "[red]Failed - API Error[/red]")
@@ -202,7 +207,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
     # ══════════════════════════════════════════════════════════════════════
     # المرحلة 3: حفظ التقرير
     # ════════════════════════════════════════════════════════════════════════
-    # ✅ FIX #1 (CRITICAL): حفظ التقرير فعلياً واستقبال القيم المرجعة
+    # FIX #1 (CRITICAL): حفظ التقرير فعلياً واستقبال القيم المرجعة
     saved_file_path        = None
     patcher_script         = None
     final_enriched_content = final_report_content
@@ -210,7 +215,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
     if output_format == "json":
         saved_file_path = save_json_report(final_report_content, session_id)
         if saved_file_path:
-            console.print(f"[bold green][✔] JSON Report saved: ./{saved_file_path}[/bold green]")
+            console.print(f"[bold green][+] JSON Report saved: ./{saved_file_path}[/bold green]")
 
     elif output_format == "pdf":
         _md_path, _, final_enriched_content = save_markdown_report(
@@ -218,7 +223,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
         )
         saved_file_path = export_to_pdf(final_enriched_content, session_id)
         if saved_file_path:
-            console.print(f"[bold white][📂] PDF Report: ./{saved_file_path}[/bold white]\n")
+            console.print(f"[bold white][PDF] PDF Report: ./{saved_file_path}[/bold white]\n")
 
     elif output_format == "docx":
         _md_path, _, final_enriched_content = save_markdown_report(
@@ -226,14 +231,14 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
         )
         saved_file_path = export_to_docx(final_enriched_content, session_id)
         if saved_file_path:
-            console.print(f"[bold white][📂] DOCX Report: ./{saved_file_path}[/bold white]\n")
+            console.print(f"[bold white][PDF] DOCX Report: ./{saved_file_path}[/bold white]\n")
 
     else:
         saved_file_path, _, final_enriched_content = save_markdown_report(
             final_report_content, session_id, cli_approach or approach
         )
         if saved_file_path:
-            console.print(f"[bold green][✔] Markdown Report saved: ./{saved_file_path}[/bold green]")
+            console.print(f"[bold green][+] Markdown Report saved: ./{saved_file_path}[/bold green]")
 
     if not saved_file_path:
         save_state(raw_data, tool_name, context, output_format, language, notify,
@@ -249,7 +254,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
         if want_script:
             if cli_approach:
-                # ✅ FIX #5: نحترم الخيار القادم من CLI
+                # FIX #5: نحترم الخيار القادم من CLI
                 approach = cli_approach
                 console.print(f"[dim][~] Using CLI approach: [bold]{approach}[/bold][/dim]")
             else:
@@ -278,7 +283,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
 
                 if patcher_script:
                     script_type = "EXPLOIT" if approach == "offense" else "AUTO-PATCHER"
-                    console.print(f"[bold cyan][🛡️] {script_type} Script: ./{patcher_script}[/bold cyan]")
+                    console.print(f"[bold cyan][SCRIPT] {script_type} Script: ./{patcher_script}[/bold cyan]")
                     console.print("[dim yellow][!] Review every command before executing.[/dim yellow]")
                 else:
                     console.print("[yellow][~] AI did not generate bash blocks. No script file created.[/yellow]")
@@ -286,7 +291,7 @@ def process_and_report(raw_data, tool_name=None, context=None, output_format="md
                 console.print("[yellow][~] Script generation failed. Report is still saved.[/yellow]")
 
     # ── حفظ الحالة النهائية ──
-    status_label = f"[green]Success ✔ ({report_label})[/green]"
+    status_label = f"[green]Success ({report_label})[/green]"
     save_state(raw_data, tool_name, context, output_format, language, notify,
                approach, status_label)
     log.scan(scan_type, tool_name or "unknown", "completed",
@@ -331,7 +336,7 @@ def _handle_dual_report(raw_data, tool_name, context, output_format,
 
     if results["technical"]["content"]:
         save_state(raw_data, tool_name, context, output_format, language, notify,
-                   approach, "[green]Dual Report ✔[/green]")
+                   approach, "[green]Dual Report[/green]")
         log.scan("dual", tool_name or "unknown", "completed")
     else:
         save_state(raw_data, tool_name, context, output_format, language, notify,
@@ -389,25 +394,25 @@ def run_system_check():
     table.add_column("Details", style="dim")
 
     # ── License ──
-    table.add_row("License", "[green]Free & Open Source ✔[/green]", "No license required")
+    table.add_row("License", "[green]Free & Open Source[/green]", "No license required")
 
     # ── AI Engine ──
     config_summary = get_config_summary()
     config_errors = validate_config()
     if not config_errors:
-        ai_status = f"[green]Connected ({config_summary['provider']}) ✔[/green]"
+        ai_status = f"[green]Connected ({config_summary['provider']})[/green]"
         ai_detail = f"Model: {config_summary['model_name']}"
     else:
-        ai_status = "[red]Not Configured ✘[/red]"
+        ai_status = "[red]Not Configured[/red]"
         ai_detail = config_errors[0]
     table.add_row("AI Engine", ai_status, ai_detail)
 
     # ── Telegram ──
-    tg_status = "[green]Configured ✔[/green]" if config_summary["telegram"] == "Configured" else "[dim]Not set[/dim]"
+    tg_status = "[green]Configured[/green]" if config_summary["telegram"] == "Configured" else "[dim]Not set[/dim]"
     table.add_row("Telegram", tg_status, "")
 
     # ── Shodan ──
-    shodan_status = "[green]Configured ✔[/green]" if config_summary["shodan"] == "Configured" else "[dim]Not set[/dim]"
+    shodan_status = "[green]Configured[/green]" if config_summary["shodan"] == "Configured" else "[dim]Not set[/dim]"
     table.add_row("Shodan API", shodan_status, "")
 
     # ── Database ──
@@ -416,7 +421,7 @@ def run_system_check():
         db = VuraDB()
         stats = db.get_global_stats()
         db.close()
-        db_status = f"[green]OK ✔[/green]"
+        db_status = f"[green]OK[/green]"
         db_detail = f"{stats.get('total_clients', 0)} clients, {stats.get('total_scans', 0)} scans"
     except Exception:
         db_status = "[dim]Not initialized[/dim]"
@@ -428,7 +433,7 @@ def run_system_check():
         from app.core.recon import check_all_tools
         tools = check_all_tools()
         installed = sum(1 for v in tools.values() if v)
-        tools_status = f"[green]{installed}/{len(tools)} installed ✔[/green]" if installed else "[red]None ✘[/red]"
+        tools_status = f"[green]{installed}/{len(tools)} installed[/green]" if installed else "[red]None[/red]"
         missing = [k for k, v in tools.items() if not v]
         tools_detail = f"Missing: {', '.join(missing)}" if missing else "All available"
     except Exception:
@@ -464,7 +469,7 @@ def read_terminal_history(lines=50):
 
 
 def show_report_history():
-    # ✅ FIX #4: مسار مطلق للتقارير
+    # FIX #4: مسار مطلق للتقارير
     reports_root = os.path.join(_PROJECT_ROOT, "reports")
     files = []
     for ext in ["md", "json", "pdf", "sh"]:
@@ -483,7 +488,7 @@ def show_report_history():
             sessions[name]["formats"].append(ext)
             sessions[name]["paths"][ext] = path
 
-    table = Table(title="📂 VURA Structured Archive", show_header=True)
+    table = Table(title="VURA Structured Archive", show_header=True)
     table.add_column("No.", justify="center")
     table.add_column("Session ID")
     table.add_column("Formats", justify="center")
@@ -568,7 +573,7 @@ def handle_cli_commands(args):
             process_and_report(
                 raw_data, context=f"History: {args.past} cmds",
                 output_format=args.format, language=args.lang,
-                notify=args.notify, cli_approach=args.approach,  # ✅ FIX #5
+                notify=args.notify, cli_approach=args.approach,  # FIX #5
                 scan_type=scan_type,
             )
         return
@@ -596,7 +601,7 @@ def handle_cli_commands(args):
             process_and_report(
                 raw_data, args.tool, "Live Terminal Hook",
                 output_format=args.format, language=args.lang,
-                notify=args.notify, cli_approach=args.approach,  # ✅ FIX #5
+                notify=args.notify, cli_approach=args.approach,  # FIX #5
                 scan_type=scan_type,
             )
         return
@@ -608,7 +613,7 @@ def handle_cli_commands(args):
             process_and_report(
                 raw_data, args.tool, args.context,
                 output_format=args.format, language=args.lang,
-                notify=args.notify, cli_approach=args.approach,  # ✅ FIX #5
+                notify=args.notify, cli_approach=args.approach,  # FIX #5
                 scan_type=scan_type,
             )
         else:
@@ -619,7 +624,7 @@ def handle_cli_commands(args):
         process_and_report(
             args.manual, args.tool, args.context,
             output_format=args.format, language=args.lang,
-            notify=args.notify, cli_approach=args.approach,  # ✅ FIX #5
+            notify=args.notify, cli_approach=args.approach,  # FIX #5
             scan_type=scan_type,
         )
         return
