@@ -122,7 +122,7 @@ echo -e "${GREEN}║                                                  ║${RESET
 echo -e "${GREEN}║   Just type ${CYAN}vura${GREEN} to launch the GUI.              ║${RESET}"
 echo -e "${GREEN}║   Type ${CYAN}vura -h${GREEN} for CLI commands.                 ║${RESET}"
 echo -e "${GREEN}║                                                  ║${RESET}"
-echo -e "${GREEN}║   First time? Run ${CYAN}vura -Ch${GREEN} to configure your key. ║${RESET}"
+echo -e "${GREEN}║   First time? Run ${CYAN}vura -Ch${GREEN} to configure your key.║${RESET}"
 echo -e "${GREEN}║                                                  ║${RESET}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
