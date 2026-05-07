@@ -1,3 +1,12 @@
+```
+ ██╗   ██╗███████╗██████╗ ██╗    ██╗
+ ██║   ██║██╔════╝██╔══██╗██║    ██║
+ ██║   ██║███████╗██████╔╝██║ █╗ ██║
+ ╚██╗ ██╔╝╚════██║██╔═══╝ ██║███╗██║
+  ╚████╔╝ ███████║██║     ╚███╔███╔╝
+   ╚═══╝  ╚══════╝╚═╝      ╚══╝╚══╝
+```
+
 <p align="center">
   <img src="https://img.shields.io/badge/VURA-v2.0.0-1abc9c?style=for-the-badge&logo=shield&logoColor=white" alt="Version"/>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"/>
@@ -11,20 +20,6 @@
   <img src="https://img.shields.io/badge/Recon-Parallel%20Async-0078D6?style=flat-square" alt="Recon"/>
 </p>
 
-<h1 align="center">🛡️ VURA — The Next-Gen AI Cybersecurity Platform</h1>
-
-<p align="center">
-  <b>Autonomous Threat Analysis · Intelligent Reconnaissance · Military-Grade Security</b><br/>
-  <i>From terminal to boardroom report — powered by AI, hardened for enterprise.</i>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Open_Source-100%25_Free-2ecc71?style=flat-square" alt="Open Source"/>
-  <img src="https://img.shields.io/badge/GUI-Flet%20%7C%20Dark_Theme-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flet"/>
-  <img src="https://img.shields.io/badge/Reports-MD%20%7C%20PDF%20%7C%20DOCX%20%7C%20JSON-orange?style=flat-square" alt="Reports"/>
-  <img src="https://img.shields.io/badge/Languages-14%2B-26A5E4?style=flat-square" alt="Languages"/>
-</p>
-
 <p align="center">
   <a href="https://github.com/hbx1-bx1/Vura/stargazers">
     <img src="https://img.shields.io/github/stars/hbx1-bx1/Vura?style=social" alt="Stars"/>
@@ -34,48 +29,53 @@
   </a>
 </p>
 
+<p align="center">
+  <b>Autonomous Threat Analysis | Intelligent Reconnaissance | Military-Grade Security</b><br/>
+  <i>From terminal to boardroom report -- powered by AI, hardened for enterprise.</i>
+</p>
+
 ---
 
-## 🔥 Why VURA?
+## Why VURA?
 
-> **VURA** (Vulnerability Reporting AI) is not a script — it's an **enterprise-grade cybersecurity platform** that records terminal sessions, executes parallel reconnaissance, and generates boardroom-ready vulnerability reports using AI. All in one command. All for free.
+**VURA** (Vulnerability Reporting AI) is not a script -- it is an **enterprise-grade cybersecurity platform** that records terminal sessions, executes parallel reconnaissance, and generates boardroom-ready vulnerability reports using AI. All in one command. All for free.
 
 | Feature | Traditional Tools | **VURA** |
 |---------|:---:|:---:|
-| Terminal Monitoring | Manual copy/paste | 👻 **Ghost PTY Engine** — real-time, zero-injection |
-| AI Provider Support | Single provider | 🤖 **13+ providers** with auto-failover |
-| Reconnaissance | Sequential, slow | ⚡ **Parallel Async** — 5 tools simultaneously |
-| API Key Security | Plaintext config | 🔐 **Fernet AES-128-CBC** — military-grade encryption |
-| Report Generation | Manual formatting | 📊 **4 formats × 14 languages** — one click |
-| User Interface | CLI only | 🎨 **Beautiful dark GUI** + full CLI |
+| Terminal Monitoring | Manual copy/paste | **Ghost PTY Engine** -- real-time, zero-injection |
+| AI Provider Support | Single provider | **13+ providers** with auto-failover |
+| Reconnaissance | Sequential, slow | **Parallel Async** -- 5 tools simultaneously |
+| API Key Security | Plaintext config | **Fernet AES-128-CBC** -- military-grade encryption |
+| Report Generation | Manual formatting | **4 formats x 14 languages** -- one click |
+| User Interface | CLI only | **Dark GUI** + full CLI |
 
-> 🚫 **No subscriptions. No license keys. No paywalls.** VURA is 100% free and open source.
+**No subscriptions. No license keys. No paywalls.** VURA is 100% free and open source.
 
 ---
 
-## ⚡ Core Architecture
+## Core Architecture
 
-### 🤖 AI-Powered Orchestration
+### AI-Powered Orchestration
 
-VURA's AI engine doesn't just call APIs — it **orchestrates** them. A circuit breaker pattern monitors provider health in real-time, automatically failing over to backups when a provider degrades.
+VURA's AI engine does not just call APIs -- it **orchestrates** them. A circuit breaker pattern monitors provider health in real-time, automatically failing over to backups when a provider degrades.
 
 | Capability | Detail |
 |---|---|
-| **Provider Coverage** | OpenAI · OpenRouter · Anthropic · DeepSeek · Qwen · Gemini · Groq · Mistral · Together · Venice · GitHub · HuggingFace · Custom |
+| **Provider Coverage** | OpenAI, OpenRouter, Anthropic, DeepSeek, Qwen, Gemini, Groq, Mistral, Together, Venice, GitHub, HuggingFace, Custom |
 | **Circuit Breaker** | Auto-disables failing providers after 5 errors, re-tests after 300s recovery window |
 | **Retry Strategy** | Exponential backoff with 3 attempts per provider |
 | **Graceful Degradation** | If all providers fail, raw analysis still delivers actionable intelligence |
 | **Smart Routing** | Provider selection based on scan type (defense/offense/recon/executive) |
 
 ```
-Provider A ─┐
-Provider B ─┤  Circuit Breaker  ──▶  Active Provider  ──▶  Report
-Provider C ─┘  monitors health        auto-selected
+Provider A --+
+Provider B --|-- Circuit Breaker --> Active Provider --> Report
+Provider C --+  monitors health       auto-selected
 ```
 
-### 👻 Ghost Monitor & PTY Core
+### Ghost Monitor & PTY Core
 
-True terminal monitoring at the **pseudo-terminal (PTY) level** — not screen scraping, not clipboard polling. VURA intercepts output at the kernel layer.
+True terminal monitoring at the **pseudo-terminal (PTY) level** -- not screen scraping, not clipboard polling. VURA intercepts output at the kernel layer.
 
 | Layer | Unix (macOS / Linux) | Windows 10/11 |
 |---|---|---|
@@ -83,101 +83,104 @@ True terminal monitoring at the **pseudo-terminal (PTY) level** — not screen s
 | **HookAll** | `psutil`-driven process discovery | `psutil` + process tree traversal |
 | **ANSI Stripping** | Centralized `strip_ansi()` | Centralized `strip_ansi_str()` |
 | **Injection Prevention** | Arguments passed as list, never interpolated | Subprocess with `shell=False` |
-| **Session State** | `TerminalState` enum with thread-safe locking | Same — unified architecture |
+| **Session State** | `TerminalState` enum with thread-safe locking | Same -- unified architecture |
 
 ```
-Terminal ─▶ PTY Layer ─▶ HookAll Engine ─▶ TerminalSession ─▶ VURA Analysis
-              (kernel)      (psutil)          (thread-safe)      (AI)
+Terminal --> PTY Layer --> HookAll Engine --> TerminalSession --> VURA Analysis
+            (kernel)        (psutil)           (thread-safe)       (AI)
 ```
 
-### ⚡ Parallel Async Recon
+### Parallel Async Recon
 
-Five reconnaissance tools execute **simultaneously** via `ThreadPoolExecutor` — not sequentially. Per-tool progress callbacks feed real-time updates to the GUI.
+Five reconnaissance tools execute **simultaneously** via `ThreadPoolExecutor` -- not sequentially. Per-tool progress callbacks feed real-time updates to the GUI.
 
 | Tool | Purpose | Timeout |
-|---|---|---|---|
+|---|---|---|
 | **Amass** | Subdomain enumeration | 600s |
 | **Shodan API** | Internet-facing service discovery | 60s |
-| **theHarvester** | OSINT email & host collection | 300s |
-| **Nmap** | Port scanning & service detection | 600s |
+| **theHarvester** | OSINT email and host collection | 300s |
+| **Nmap** | Port scanning and service detection | 600s |
 | **Whois** | Domain registration intelligence | 30s |
 
-Results are aggregated in completion order, not execution order — meaning faster tools appear first in the output.
+Results are aggregated in completion order, not execution order -- meaning faster tools appear first in the output.
 
-### 🔐 Military-Grade Encryption
+### Military-Grade Encryption
 
-Your API keys are not stored in plaintext. VURA uses **Fernet symmetric encryption** (AES-128-CBC with HMAC-SHA256) with a dedicated master key file.
+API keys are not stored in plaintext. VURA uses **Fernet symmetric encryption** (AES-128-CBC with HMAC-SHA256) with a dedicated master key file.
 
 | Component | Detail |
 |---|---|
 | **Algorithm** | Fernet (AES-128-CBC + HMAC-SHA256) |
 | **Master Key** | 32-byte random key stored in `data/.vura_master.key` |
 | **Permissions** | `chmod 0o600` (owner-only read/write) |
-| **Encrypted Keys** | `api_key` · `shodan_api_key` · `tg_bot_token` · `gophish_api_key` |
+| **Encrypted Keys** | `api_key`, `shodan_api_key`, `tg_bot_token`, `gophish_api_key` |
 | **Detection** | `enc:` prefix identifies encrypted values vs plaintext |
 | **Transparency** | Config layer auto-encrypts on save, auto-decrypts on load |
 
 ---
 
-## 📊 Feature Matrix
+## Feature Matrix
 
-### 🧠 AI Engine
-- ✅ **13+ provider support** through unified OpenAI-compatible interface
-- ✅ **Circuit breaker pattern** — auto-failover when providers degrade
-- ✅ **Exponential backoff retry** — 3 attempts with increasing delays
-- ✅ **Response validation** — `<think>` tag stripping, JSON parsing, format enforcement
-- ✅ **Specialized security prompts** — defense, offense, recon, executive summary
+### AI Engine
+- [x] **13+ provider support** through unified OpenAI-compatible interface
+- [x] **Circuit breaker pattern** -- auto-failover when providers degrade
+- [x] **Exponential backoff retry** -- 3 attempts with increasing delays
+- [x] **Response validation** -- `
+</think>
 
-### 👻 Terminal Monitoring
-- ✅ **Ghost Mode** (`-H`) — opens new terminal with PTY recording
-- ✅ **HookAll** (`-Ha`) — monitors ALL interactive terminals simultaneously
-- ✅ **Exclude Dialog** — selectively exclude terminals from HookAll
-- ✅ **Cross-platform** — Windows, macOS, Linux with platform-specific PTY backends
-- ✅ **Injection-safe** — all commands passed as argument lists, never string-interpolated
+` tag stripping, JSON parsing, format enforcement
+- [x] **Specialized security prompts** -- defense, offense, recon, executive summary
 
-### 📊 Professional Reports
+### Terminal Monitoring
+- [x] **Ghost Mode** (`-H`) -- opens new terminal with PTY recording
+- [x] **HookAll** (`-Ha`) -- monitors ALL interactive terminals simultaneously
+- [x] **Exclude Dialog** -- selectively exclude terminals from HookAll
+- [x] **Cross-platform** -- Windows, macOS, Linux with platform-specific PTY backends
+- [x] **Injection-safe** -- all commands passed as argument lists, never string-interpolated
+
+### Professional Reports
 | Format | Content | Languages |
 |---|---|---|
-| **Markdown** | Full analysis with CVEs | EN · AR · FR · ES · DE · JA · ZH · KO · RU · PT · IT · TR · NL · HI |
+| **Markdown** | Full analysis with CVEs | EN, AR, FR, ES, DE, JA, ZH, KO, RU, PT, IT, TR, NL, HI |
 | **PDF** | WeasyPrint-rendered | Same |
 | **DOCX** | python-docx generated | Same |
 | **JSON** | Structured data export | Same |
 
-- ✅ **CVE enrichment** — automatic vulnerability identifier expansion
-- ✅ **Compliance mapping** — ISO 27001 · NCA ECC · GDPR · PCI-DSS · OWASP Top 10
-- ✅ **Script generation** — automated remediation scripts (optional)
-- ✅ **Dual reports** — technical + executive summary in one scan
+- [x] **CVE enrichment** -- automatic vulnerability identifier expansion
+- [x] **Compliance mapping** -- ISO 27001, NCA ECC, GDPR, PCI-DSS, OWASP Top 10
+- [x] **Script generation** -- automated remediation scripts (optional)
+- [x] **Dual reports** -- technical + executive summary in one scan
 
-### 🔍 Reconnaissance
-- ✅ **Parallel execution** — 5 tools via `ThreadPoolExecutor`
-- ✅ **Per-tool progress** — real-time callbacks to GUI progress bars
-- ✅ **Graceful degradation** — one tool failure doesn't stop others
-- ✅ **Output persistence** — all results saved to `data/recon/`
-- ✅ **AI aggregation** — combined results sent to AI for unified analysis
+### Reconnaissance
+- [x] **Parallel execution** -- 5 tools via `ThreadPoolExecutor`
+- [x] **Per-tool progress** -- real-time callbacks to GUI progress bars
+- [x] **Graceful degradation** -- one tool failure does not stop others
+- [x] **Output persistence** -- all results saved to `data/recon/`
+- [x] **AI aggregation** -- combined results sent to AI for unified analysis
 
-### 🎨 Desktop GUI (Flet)
-- ✅ **Dark theme** — `#1abc9c` teal accent on `#0a0a1a` background
-- ✅ **Bilingual** — full English/Arabic toggle with 99 translation keys
-- ✅ **6 pages** — Home · Monitor · Analyze · Recon · Reports · Settings
-- ✅ **Page caching** — instant navigation with state preservation
-- ✅ **Encryption status** — visual indicator for config security
-- ✅ **Modular architecture** — components, engine, pages separated
+### Desktop GUI (Flet)
+- [x] **Dark theme** -- `#1abc9c` teal accent on `#0a0a1a` background
+- [x] **Bilingual** -- full English/Arabic toggle with 99 translation keys
+- [x] **6 pages** -- Home, Monitor, Analyze, Recon, Reports, Settings
+- [x] **Page caching** -- instant navigation with state preservation
+- [x] **Encryption status** -- visual indicator for config security
+- [x] **Modular architecture** -- components, engine, pages separated
 
-### 📱 Telegram Integration
-- ✅ **Severity-based formatting** — Critical/High/Medium/Low breakdowns
-- ✅ **PDF file uploads** — full report sent as attachment
-- ✅ **Short summary mode** — quick alert with key findings
+### Telegram Integration
+- [x] **Severity-based formatting** -- Critical/High/Medium/Low breakdowns
+- [x] **PDF file uploads** -- full report sent as attachment
+- [x] **Short summary mode** -- quick alert with key findings
 
 ---
 
-## 📦 Installation
+## Installation
 
-### 📋 Prerequisites
-- **🐍 Python 3.10+** — [Download Python](https://www.python.org/downloads/)
-- **🖥️ Windows 10/11**, **macOS**, or **Linux**
-- **🔑 An AI API key** (Gemini, OpenAI, DeepSeek, etc.)
+### Prerequisites
+- **Python 3.10+** -- [Download Python](https://www.python.org/downloads/)
+- **Windows 10/11**, **macOS**, or **Linux**
+- **An AI API key** (Gemini, OpenAI, DeepSeek, etc.)
 
-### 🍎 macOS / Linux — Quick Start
+### macOS / Linux -- Quick Start
 
 ```bash
 git clone https://github.com/hbx1-bx1/Vura.git
@@ -185,7 +188,7 @@ cd Vura
 bash install.sh
 ```
 
-### 🪟 Windows — Quick Start
+### Windows -- Quick Start
 
 ```powershell
 git clone https://github.com/hbx1-bx1/Vura.git
@@ -193,15 +196,15 @@ cd Vura
 .\install.bat
 ```
 
-### 📥 No Git? Download ZIP
+### No Git? Download ZIP
 
 1. Go to **[github.com/hbx1-bx1/Vura](https://github.com/hbx1-bx1/Vura)**
-2. Click **`<> Code`** → **`Download ZIP`**
+2. Click **Code** -> **Download ZIP**
 3. Extract and run the installer from the folder:
    - **Windows:** `.\install.bat`
    - **macOS/Linux:** `bash install.sh`
 
-### ✅ What the installer does
+### What the installer does
 - Installs all dependencies (Flet, cryptography, psutil, WeasyPrint, etc.)
 - Creates an isolated virtual environment
 - Generates `config.json` from template
@@ -209,26 +212,26 @@ cd Vura
 
 After installation:
 ```bash
-vura            # 🎨 Launch the Desktop GUI
-vura -h         # 📖 Show CLI help
-vura -Ch        # 🔧 Configure your AI provider & API key
+vura            # Launch the Desktop GUI
+vura -h         # Show CLI help
+vura -Ch        # Configure your AI provider & API key
 ```
 
 <details>
-<summary><b>📋 Full dependency list</b></summary>
+<summary><b>Full dependency list</b></summary>
 
 #### Core
 | Package | Purpose |
 |---|---|
-| `rich` ≥ 13.0.0 | Beautiful CLI output & tables |
-| `openai` ≥ 1.0.0 | Unified AI provider client |
-| `cryptography` ≥ 41.0.0 | Fernet encryption for API keys |
-| `weasyprint` ≥ 60.0 | PDF report generation |
-| `markdown` ≥ 3.5 | Markdown processing |
-| `requests` ≥ 2.31.0 | HTTP client for APIs |
-| `python-docx` ≥ 1.0.0 | DOCX report export |
-| `psutil` ≥ 5.9.0 | Smart terminal detection |
-| `flet` ≥ 0.28.0 | Desktop GUI framework |
+| `rich` >= 13.0.0 | CLI output and tables |
+| `openai` >= 1.0.0 | Unified AI provider client |
+| `cryptography` >= 41.0.0 | Fernet encryption for API keys |
+| `weasyprint` >= 60.0 | PDF report generation |
+| `markdown` >= 3.5 | Markdown processing |
+| `requests` >= 2.31.0 | HTTP client for APIs |
+| `python-docx` >= 1.0.0 | DOCX report export |
+| `psutil` >= 5.9.0 | Smart terminal detection |
+| `flet` >= 0.28.0 | Desktop GUI framework |
 
 #### Optional (Recon tools)
 | Tool | Install |
@@ -241,32 +244,32 @@ vura -Ch        # 🔧 Configure your AI provider & API key
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### Desktop GUI
 ```bash
 vura
 ```
-Navigate: **Home** → **Monitor** → **Analyze** → **Recon** → **Reports** → **Settings**
+Navigate: **Home** -> **Monitor** -> **Analyze** -> **Recon** -> **Reports** -> **Settings**
 
 ### CLI Commands
 
 ```bash
-# ── Ghost Monitor ──
+# -- Ghost Monitor --
 vura -H                              # Start PTY recording
 vura -Ha                             # Monitor ALL open terminals
 vura -e                              # Exclude terminal from HookAll
 vura -R -F pdf -l Arabic             # Stop & generate PDF report in Arabic
 
-# ── Analysis ──
+# -- Analysis --
 vura -f scan.log -A offense          # Analyze log file (attack perspective)
 vura -m 'nmap output...' -S dual     # Dual report from manual input
 vura -p 500 -F md                    # Analyze last 500 history lines
 
-# ── Reconnaissance ──
-vura -r example.com -F pdf           # Parallel recon → PDF report
+# -- Reconnaissance --
+vura -r example.com -F pdf           # Parallel recon -> PDF report
 
-# ── System ──
+# -- System --
 vura -Ch                             # Configure AI provider & keys
 vura -Ck                             # Run system diagnostics
 vura -Hy                             # Browse report archive
@@ -275,51 +278,51 @@ vura -Rc                             # Retry last failed report
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 Vura/
-├── main.py                      # CLI entry point
-├── run_gui.py                   # Flet desktop GUI launcher
-├── install.sh / install.bat     # One-command installers
-├── config.example.json          # Configuration template
-├── requirements.txt             # Python dependencies
-│
-├── gui/                         # 🎨 Modular GUI package
-│   ├── main.py                  # App bootstrap + NavigationRail routing
-│   ├── theme.py                 # Dark theme colors & typography
-│   ├── i18n.py                  # Translation engine (14 languages)
-│   ├── components/              # Reusable UI building blocks
-│   ├── engine/                  # Ghost/HookAll hybrid engine
-│   └── pages/                   # Page builders (6 pages)
-│
-├── app/
-│   ├── cli.py                   # CLI command handler
-│   ├── core/
-│   │   ├── ai_engine.py         # 🤖 Multi-provider AI + circuit breaker
-│   │   ├── monitor.py           # Compatibility wrapper
-│   │   ├── terminal/            # 👻 PTY core (session, unix_pty, win_conpty)
-│   │   ├── recon.py             # ⚡ Parallel recon engine
-│   │   └── database.py          # SQLite client
-│   ├── utils/
-│   │   ├── config.py            # Config with transparent encryption
-│   │   ├── crypto.py            # 🔐 Fernet key vault
-│   │   ├── formatter.py         # Report export (MD/PDF/DOCX/JSON)
-│   │   ├── notifier.py          # Telegram notifications
-│   │   └── logger.py            # Rotating log system
-│   └── modules/
-│       ├── compliance.py        # ISO 27001, NCA ECC, PCI-DSS, GDPR
-│       └── phishing.py          # GoPhish campaign integration
-│
-├── api/main.py                  # FastAPI REST API (optional)
-├── dashboard/app.py             # Streamlit web dashboard (optional)
-├── data/                        # Session logs, master key, recon output
-└── reports/                     # Generated reports (md/pdf/docx/json/sh)
+|-- main.py                      # CLI entry point
+|-- run_gui.py                   # Flet desktop GUI launcher
+|-- install.sh / install.bat     # One-command installers
+|-- config.example.json          # Configuration template
+|-- requirements.txt             # Python dependencies
+|
+|-- gui/                         # Modular GUI package
+|   |-- main.py                  # App bootstrap + NavigationRail routing
+|   |-- theme.py                 # Dark theme colors & typography
+|   |-- i18n.py                  # Translation engine (14 languages)
+|   |-- components/              # Reusable UI building blocks
+|   |-- engine/                  # Ghost/HookAll hybrid engine
+|   +-- pages/                   # Page builders (6 pages)
+|
+|-- app/
+|   |-- cli.py                   # CLI command handler
+|   |-- core/
+|   |   |-- ai_engine.py         # Multi-provider AI + circuit breaker
+|   |   |-- monitor.py           # Compatibility wrapper
+|   |   |-- terminal/            # PTY core (session, unix_pty, win_conpty)
+|   |   |-- recon.py             # Parallel recon engine
+|   |   +-- database.py          # SQLite client
+|   |-- utils/
+|   |   |-- config.py            # Config with transparent encryption
+|   |   |-- crypto.py            # Fernet key vault
+|   |   |-- formatter.py         # Report export (MD/PDF/DOCX/JSON)
+|   |   |-- notifier.py          # Telegram notifications
+|   |   +-- logger.py            # Rotating log system
+|   +-- modules/
+|       |-- compliance.py        # ISO 27001, NCA ECC, PCI-DSS, GDPR
+|       +-- phishing.py          # GoPhish campaign integration
+|
+|-- api/main.py                  # FastAPI REST API (optional)
+|-- dashboard/app.py             # Streamlit web dashboard (optional)
+|-- data/                        # Session logs, master key, recon output
++-- reports/                     # Generated reports (md/pdf/docx/json/sh)
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ```bash
 cp config.example.json config.json
@@ -339,7 +342,7 @@ cp config.example.json config.json
 }
 ```
 
-> 🔐 **Note:** Sensitive keys (`api_key`, `shodan_api_key`, `tg_bot_token`, `gophish_api_key`) are automatically encrypted with Fernet on save. The plaintext you see in `config.json` after saving will be prefixed with `enc:` — VURA decrypts them transparently on load.
+**Note:** Sensitive keys (`api_key`, `shodan_api_key`, `tg_bot_token`, `gophish_api_key`) are automatically encrypted with Fernet on save. The plaintext you see in `config.json` after saving will be prefixed with `enc:` -- VURA decrypts them transparently on load.
 
 Or configure interactively:
 ```bash
@@ -348,23 +351,23 @@ vura -Ch
 
 ---
 
-## 🛣️ Roadmap
+## Roadmap
 
 | Phase | Feature | Status |
 |---|---|---|
-| ✅ **v1.0** | CLI foundation, basic AI engine, Ghost Monitor | Released |
-| ✅ **v1.5** | Multi-provider AI, HookAll, Recon engine | Released |
-| ✅ **v2.0** | PTY Core, modular GUI, encryption, parallel recon | **Current** |
-| 🔜 **v2.1** | Plugin system, real-time vulnerability feed | Planned |
-| 🔜 **v2.5** | REST API server, scheduled scans, webhook alerts | Planned |
-| 🔜 **v3.0** | Multi-user support, team dashboards, SSO | Planned |
-| 🔮 **Future** | Autonomous pentesting agent, CI/CD integration, compliance dashboard | Vision |
+| **v1.0** | CLI foundation, basic AI engine, Ghost Monitor | Released |
+| **v1.5** | Multi-provider AI, HookAll, Recon engine | Released |
+| **v2.0** | PTY Core, modular GUI, encryption, parallel recon | **Current** |
+| **v2.1** | Plugin system, real-time vulnerability feed | Planned |
+| **v2.5** | REST API server, scheduled scans, webhook alerts | Planned |
+| **v3.0** | Multi-user support, team dashboards, SSO | Planned |
+| **Future** | Autonomous pentesting agent, CI/CD integration, compliance dashboard | Vision |
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Here's how:
+Contributions are welcome. Here is how:
 
 1. **Fork** the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
@@ -389,7 +392,7 @@ pip install flet
 
 ---
 
-## 📜 License
+## License
 
 ```
 MIT License
@@ -417,7 +420,7 @@ SOFTWARE.
 
 ---
 
-## 💬 Community
+## Community
 
 <p align="center">
   <a href="https://t.me/VURA_Official">
@@ -427,19 +430,19 @@ SOFTWARE.
 
 Join our official Telegram channel for updates, discussions, and support:
 
-👉 **[https://t.me/VURA_Official](https://t.me/VURA_Official)**
+**[https://t.me/VURA_Official](https://t.me/VURA_Official)**
 
-- 🐛 **Bug Reports** — Open an issue on GitHub or message on Telegram
-- 💡 **Feature Requests** — Start a discussion or reach out directly
-- 🤝 **Contributing** — PRs are always welcome
+- **Bug Reports** -- Open an issue on GitHub or message on Telegram
+- **Feature Requests** -- Start a discussion or reach out directly
+- **Contributing** -- Pull requests are always welcome
 
 ---
 
 <p align="center">
   <b>Built with precision by Layth</b><br/>
-  <i>VURA — Because security reports shouldn't take hours.</i>
+  <i>VURA -- Because security reports should not take hours.</i>
 </p>
 
 <p align="center">
-  <sub>⭐ If VURA helped you, consider starring the repo — it helps others find it.</sub>
+  <sub>If VURA helped you, consider starring the repo -- it helps others find it.</sub>
 </p>
