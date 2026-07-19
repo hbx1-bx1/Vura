@@ -8,7 +8,6 @@
 > I plan to resume development and continue improving this project after completing my LGS exam, as time permits.
 >
 > Thank you for your patience, understanding, and support.
-
 ---
 
 ```
